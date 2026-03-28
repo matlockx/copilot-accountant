@@ -65,6 +65,11 @@ struct PollingTests {
             test.assertTrue(received, "Posting usage update notification notifies observers synchronously")
             NotificationCenter.default.removeObserver(observer)
         }
+
+        test.run("test_Polling_ManualRefreshReason_DoesNotSendMilestones") {
+            test.assertTrue(!FetchReason.manualRefresh.shouldSendMilestoneNotifications, "Manual refresh skips milestone notifications")
+            test.assertTrue(FetchReason.polling.shouldSendMilestoneNotifications, "Polling fetches still send milestone notifications")
+        }
         
         test.printSummary()
     }

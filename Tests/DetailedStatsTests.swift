@@ -22,11 +22,12 @@ class TestCase {
     func printSummary() { print("\n========================================="); if failed > 0 { print("FAILED: \(passed) passed, \(failed) failed"); exit(1) } else { print("PASSED: \(passed) tests passed") } }
 }
 
-func createTestUsage(models: [(String, Double)]) -> UsageResponse {
+func createTestUsage(models: [(String, Double, Double?)]) -> UsageResponse {
     var items: [[String: Any]] = []
-    for (model, quantity) in models {
+    for (model, quantity, customPrice) in models {
+        let price = customPrice ?? 0.05
         items.append(["product": "copilot", "sku": "premium", "model": model, "unitType": "requests",
-                      "pricePerUnit": 0.05, "grossQuantity": quantity, "grossAmount": quantity * 0.05,
+                      "pricePerUnit": price, "grossQuantity": quantity, "grossAmount": quantity * price,
                       "discountQuantity": 0.0, "discountAmount": 0.0, "netQuantity": 0.0, "netAmount": 0.0])
     }
     let response: [String: Any] = ["timePeriod": ["year": 2026, "month": 3], "user": "testuser", "usageItems": items]
@@ -58,12 +59,38 @@ struct DetailedStatsTests {
         }
         
         test.run("test_DetailedStats_PercentageCalculations") {
-            let usage = createTestUsage(models: [("model-a", 50.0), ("model-b", 30.0), ("model-c", 20.0)])
+            let usage = createTestUsage(models: [("model-a", 50.0, nil), ("model-b", 30.0, nil), ("model-c", 20.0, nil)])
             let total = Double(usage.totalRequests)
             let byModel = usage.usageByModel
             test.assertApproximatelyEqual((byModel["model-a"]! / total) * 100.0, 50.0, tolerance: 0.1, "model-a is 50%")
             test.assertApproximatelyEqual((byModel["model-b"]! / total) * 100.0, 30.0, tolerance: 0.1, "model-b is 30%")
             test.assertApproximatelyEqual((byModel["model-c"]! / total) * 100.0, 20.0, tolerance: 0.1, "model-c is 20%")
+        }
+
+        test.run("test_DetailedStats_BillingTotals_UseGrossAndNetAmounts") {
+            let usage = createTestUsage(models: [("gpt-4", 10.0, nil), ("claude-opus", 5.0, nil)])
+            test.assertApproximatelyEqual(usage.totalGrossCost, 0.75, tolerance: 0.001, "Gross cost sums all line items")
+            test.assertApproximatelyEqual(usage.totalNetCost, 0.0, tolerance: 0.001, "Net cost reflects billed amount after included usage")
+        }
+
+        test.run("test_DetailedStats_ModelCostFactors_AreRelativeToCheapestModel") {
+            let usage = createTestUsage(models: [("cheap-model", 10.0, 0.04), ("expensive-model", 10.0, 0.14)])
+            let factors = usage.modelCostFactors
+            test.assertApproximatelyEqual(factors["cheap-model"] ?? 0, 1.0, tolerance: 0.001, "Cheapest model has factor 1.0")
+            test.assertApproximatelyEqual(factors["expensive-model"] ?? 0, 3.5, tolerance: 0.001, "More expensive model shows relative factor")
+        }
+
+        test.run("test_DetailedStats_ModelCostFactors_HideRelativeFactorWhenPricesMatch") {
+            let usage = createTestUsage(models: [("model-a", 10.0, 0.04), ("model-b", 10.0, 0.04)])
+            test.assertTrue(usage.hasMeaningfulModelFactors == false, "Equal prices do not claim different relative factors")
+        }
+
+        test.run("test_DetailedStats_IncludedBudgetAndOverageCalculation") {
+            let usage = createTestUsage(models: [("model", 350.0, nil)])
+            let summary = usage.billingSummary(includedRequests: 300)
+            test.assertEqual(summary.includedRequests, 300, "Included budget mirrors configured monthly budget")
+            test.assertEqual(summary.usedRequests, 350, "Used requests match usage total")
+            test.assertEqual(summary.overageRequests, 50, "Overage requests are requests beyond included budget")
         }
         
         test.run("test_DetailedStats_DaysUntilReset") {
@@ -86,7 +113,7 @@ struct DetailedStatsTests {
         }
         
         test.run("test_DetailedStats_TimePeriodInfo") {
-            let usage = createTestUsage(models: [("model", 10.0)])
+            let usage = createTestUsage(models: [("model", 10.0, nil)])
             test.assertEqual(usage.timePeriod.year, 2026, "Year correct")
             test.assertEqual(usage.timePeriod.month, 3, "Month correct")
         }

@@ -1,6 +1,20 @@
 import Foundation
 import Combine
 
+enum FetchReason {
+    case polling
+    case manualRefresh
+
+    var shouldSendMilestoneNotifications: Bool {
+        switch self {
+        case .polling:
+            true
+        case .manualRefresh:
+            NotificationSettingsConfiguration.manualRefreshSendsMilestones
+        }
+    }
+}
+
 /// Main tracker that manages usage data and polling
 @MainActor
 class UsageTracker: ObservableObject {
@@ -90,7 +104,7 @@ class UsageTracker: ObservableObject {
     }
     
     /// Fetch usage data from GitHub
-    func fetchUsage() async {
+    func fetchUsage(reason: FetchReason = .polling) async {
         log.info("Fetching usage data...")
         
         guard !config.username.isEmpty else {
@@ -125,7 +139,7 @@ class UsageTracker: ObservableObject {
             }
             
             // Check for alerts
-            checkAndSendAlerts(usage: usage)
+            checkAndSendAlerts(usage: usage, reason: reason)
             
             // Fetch daily breakdown in background
             Task {
@@ -169,14 +183,16 @@ class UsageTracker: ObservableObject {
     }
     
     /// Check thresholds and send alerts
-    private func checkAndSendAlerts(usage: UsageResponse) {
+    private func checkAndSendAlerts(usage: UsageResponse, reason: FetchReason) {
         let used = usage.totalRequests
         let threshold80 = config.threshold80
         let threshold90 = config.threshold90
         let wholePercentUsed = config.wholePercentUsed(for: used)
         
-        // Reset alerts if usage dropped (new month)
-        if used < threshold80 {
+        let minimumTrackedThreshold = ([threshold80, threshold90] + config.customAlertThresholds.map { config.customThresholdValue(for: $0) }).min() ?? threshold80
+
+        // Reset alerts if usage dropped enough to indicate a new month
+        if used < minimumTrackedThreshold {
             hasAlerted80 = false
             hasAlerted90 = false
             alertedCustomPercentages = []
@@ -189,12 +205,19 @@ class UsageTracker: ObservableObject {
         
         guard config.notificationsEnabled else { return }
 
-        if config.notifyEveryPercent && wholePercentUsed > lastAlertedWholePercent && wholePercentUsed > 0 {
+        if config.notifyEveryPercent &&
+            reason.shouldSendMilestoneNotifications &&
+            wholePercentUsed > lastAlertedWholePercent &&
+            wholePercentUsed > 0 &&
+            !config.shouldSkipMilestoneNotification(for: wholePercentUsed) {
             notificationService.sendNotification(
                 type: .percentageMilestone(wholePercentUsed),
                 currentUsage: used,
                 budget: config.monthlyBudget
             )
+            lastAlertedWholePercent = wholePercentUsed
+            userDefaults.set(wholePercentUsed, forKey: lastAlertedWholePercentKey)
+        } else if wholePercentUsed > lastAlertedWholePercent {
             lastAlertedWholePercent = wholePercentUsed
             userDefaults.set(wholePercentUsed, forKey: lastAlertedWholePercentKey)
         }

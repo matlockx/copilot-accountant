@@ -93,6 +93,17 @@ struct NotificationTests {
             test.assertEqual(config.wholePercentUsed(for: 300), 100, "Full budget reports 100%")
         }
 
+        test.run("test_Notification_MilestoneDedup_SkipsMatchingCustomThreshold") {
+            let config = BudgetConfig(monthlyBudget: 100, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: false, alertAt90Percent: true, customAlerts: [CustomAlertThreshold(percent: 55, isEnabled: true)], notifyEveryPercent: true, launchAtLogin: false)
+            test.assertTrue(config.customAlertThresholds.contains(55), "Custom threshold includes 55%")
+            test.assertTrue(config.notifyEveryPercent, "Per-percent milestones are enabled")
+            test.assertTrue(config.shouldSkipMilestoneNotification(for: 55), "Matching custom threshold suppresses duplicate milestone notification")
+        }
+
+        test.run("test_Notification_ManualRefresh_SuppressesMilestoneNotifications") {
+            test.assertFalse(NotificationSettingsConfiguration.manualRefreshSendsMilestones, "Manual refresh does not emit milestone notifications")
+        }
+
         test.run("test_Notification_TestButton_UsesExpectedLabel") {
             test.assertEqual(NotificationSettingsConfiguration.testButtonTitle, "Test Notification", "Settings exposes a test notification button")
         }

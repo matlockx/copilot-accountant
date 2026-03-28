@@ -47,9 +47,8 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
                     settingsSection("GitHub Account") {
                         settingsGrid {
                             GridRow {
@@ -203,33 +202,41 @@ struct SettingsView: View {
                                 trailingControlRow {
                                     VStack(alignment: .trailing, spacing: SettingsViewConfiguration.formFieldSpacing) {
                                     ForEach($customAlerts) { $alert in
-                                        HStack(spacing: SettingsViewConfiguration.formFieldSpacing) {
-                                            TextField("75", value: $alert.percent, formatter: integerFormatter)
-                                                .textFieldStyle(.roundedBorder)
-                                                .frame(width: NotificationSettingsConfiguration.customAlertFieldWidth)
-                                                .multilineTextAlignment(.trailing)
-                                                .disabled(!notificationsEnabled)
-                                            Text(NotificationSettingsConfiguration.customAlertSuffix)
-                                                .foregroundColor(.secondary)
+                                        checkboxAlignedRow {
+                                            HStack(spacing: SettingsViewConfiguration.formFieldSpacing) {
+                                                TextField("75", value: $alert.percent, formatter: integerFormatter)
+                                                    .textFieldStyle(.roundedBorder)
+                                                    .frame(width: NotificationSettingsConfiguration.customAlertFieldWidth)
+                                                    .multilineTextAlignment(.trailing)
+                                                    .disabled(!notificationsEnabled)
+                                                Text(NotificationSettingsConfiguration.customAlertSuffix)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        } toggle: {
                                             Toggle(NotificationSettingsConfiguration.customAlertToggleTitle, isOn: $alert.isEnabled)
                                                 .toggleStyle(.checkbox)
                                                 .labelsHidden()
-                                                .frame(width: SettingsViewConfiguration.toggleColumnWidth)
                                                 .disabled(!notificationsEnabled)
+                                        } action: {
                                             Button(NotificationSettingsConfiguration.removeCustomAlertButtonTitle) {
                                                 removeCustomAlert(id: alert.id)
                                             }
-                                            .frame(width: SettingsViewConfiguration.utilityButtonWidth)
+                                            .frame(width: SettingsViewConfiguration.actionColumnWidth, alignment: .trailing)
                                             .disabled(!notificationsEnabled)
                                         }
                                     }
 
-                                    Button(NotificationSettingsConfiguration.addCustomAlertButtonTitle) {
-                                        addCustomAlert()
-                                    }
-                                    .frame(width: SettingsViewConfiguration.utilityButtonWidth)
-                                    .buttonStyle(.borderedProminent)
-                                    .disabled(!notificationsEnabled)
+                                        checkboxAlignedRow {
+                                            EmptyView()
+                                        } action: {
+                                            Button(NotificationSettingsConfiguration.addCustomAlertButtonTitle) {
+                                                addCustomAlert()
+                                            }
+                                            .frame(width: SettingsViewConfiguration.actionColumnWidth, alignment: .trailing)
+                                            .buttonStyle(.borderedProminent)
+                                            .tint(Color(nsColor: .separatorColor))
+                                            .disabled(!notificationsEnabled)
+                                        }
                                     }
                                 }
                             }
@@ -276,34 +283,39 @@ struct SettingsView: View {
                             }
                         }
                     }
-                }
-            .padding(20)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(nsColor: .windowBackgroundColor),
-                        Color.accentColor.opacity(0.07),
-                        Color(nsColor: .underPageBackgroundColor)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, SettingsViewConfiguration.formOuterPadding)
+            .padding(.top, SettingsViewConfiguration.formOuterPadding)
+            .padding(.bottom, 20)
+        }
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(nsColor: .windowBackgroundColor),
+                    Color(nsColor: .controlBackgroundColor),
+                    Color(nsColor: .underPageBackgroundColor)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             Divider()
 
             HStack {
                 Spacer()
 
                 Button(SettingsViewConfiguration.footerButtonTitles[0]) {
-                    NSApplication.shared.keyWindow?.close()
+                    closeSettingsWindow()
                 }
+                .frame(width: SettingsViewConfiguration.footerButtonWidth)
 
                 Button(SettingsViewConfiguration.footerButtonTitles[1]) {
                     saveSettings()
                 }
+                .frame(width: SettingsViewConfiguration.footerButtonWidth)
                 .buttonStyle(.borderedProminent)
             }
             .padding(.horizontal, 20)
@@ -329,7 +341,7 @@ struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.none)
                     .autocorrectionDisabled()
-                    .frame(width: SettingsViewConfiguration.toggleColumnWidth)
+                    .frame(width: SettingsViewConfiguration.tokenFieldWidth)
             } else {
                 ZStack(alignment: .leading) {
                     TextField("", text: $token)
@@ -337,7 +349,7 @@ struct SettingsView: View {
                         .textContentType(.none)
                         .autocorrectionDisabled()
                         .foregroundColor(.clear)
-                        .frame(width: SettingsViewConfiguration.toggleColumnWidth)
+                        .frame(width: SettingsViewConfiguration.tokenFieldWidth)
 
                     if token.isEmpty {
                         Text(revealedSavedToken.isEmpty ? "Personal Access Token (ghp_...)" : SettingsViewConfiguration.hiddenTokenMask)
@@ -372,7 +384,7 @@ struct SettingsView: View {
                 LinearGradient(
                     colors: [
                         Color(nsColor: .controlBackgroundColor),
-                        Color.accentColor.opacity(0.06)
+                        Color(nsColor: .quaternaryLabelColor).opacity(0.08)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -406,10 +418,33 @@ struct SettingsView: View {
         .frame(width: SettingsViewConfiguration.notificationControlWidth, alignment: .trailing)
     }
 
+    private func checkboxAlignedRow<Leading: View, ToggleContent: View, Action: View>(
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder toggle: () -> ToggleContent = { EmptyView() },
+        @ViewBuilder action: () -> Action = { EmptyView() }
+    ) -> some View {
+        HStack(spacing: SettingsViewConfiguration.formFieldSpacing) {
+            leading()
+                .frame(width: SettingsViewConfiguration.customAlertValueColumnWidth, alignment: .trailing)
+
+            Toggle("", isOn: .constant(false))
+                .labelsHidden()
+                .hidden()
+                .frame(width: SettingsViewConfiguration.checkboxColumnWidth)
+                .overlay(alignment: .center) { toggle() }
+
+            action()
+                .frame(width: SettingsViewConfiguration.actionColumnWidth, alignment: .trailing)
+        }
+        .frame(width: SettingsViewConfiguration.notificationControlWidth, alignment: .trailing)
+    }
+
     private func toggleGridRow(_ title: String, isOn: Binding<Bool>, disabled: Bool = false) -> GridRow<TupleView<(some View, some View)>> {
         GridRow {
             gridLabel(title)
-            trailingControlRow {
+            checkboxAlignedRow {
+                EmptyView()
+            } toggle: {
                 Toggle("", isOn: isOn)
                     .labelsHidden()
                     .disabled(disabled)
@@ -496,6 +531,10 @@ struct SettingsView: View {
         guard !revealedSavedToken.isEmpty else { return }
         showToken.toggle()
     }
+
+    private func closeSettingsWindow() {
+        NSApp.keyWindow?.close()
+    }
     
     private func saveSettings() {
         tracker.config.username = username
@@ -514,7 +553,7 @@ struct SettingsView: View {
         tracker.saveConfig()
         
         // Close window
-        NSApplication.shared.keyWindow?.close()
+        closeSettingsWindow()
     }
 
     private func updateLaunchAtLoginRegistration(enabled: Bool) {

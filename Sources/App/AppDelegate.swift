@@ -1,6 +1,12 @@
 import SwiftUI
 import AppKit
 
+final class EscapeClosableWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) {
+        close()
+    }
+}
+
 /// Application delegate for menu bar management
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
@@ -101,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             refreshNow: { [weak self] in
                 Task { @MainActor in
-                    await self?.tracker?.fetchUsage()
+                    await self?.tracker?.fetchUsage(reason: .manualRefresh)
                     self?.updateStatusBarText()
                 }
             },
@@ -181,7 +187,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let settingsView = SettingsView(tracker: tracker!)
             let hostingController = NSHostingController(rootView: settingsView)
             
-            let window = NSWindow(contentViewController: hostingController)
+            let window = EscapeClosableWindow(contentViewController: hostingController)
             window.title = "Settings"
             window.styleMask = [.titled, .closable]
             window.setContentSize(SettingsViewConfiguration.windowSize)
@@ -200,7 +206,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let detailedView = DetailedStatsView(tracker: tracker!)
                 let hostingController = NSHostingController(rootView: detailedView)
                 
-                let window = NSWindow(contentViewController: hostingController)
+                let window = EscapeClosableWindow(contentViewController: hostingController)
                 window.title = "Copilot Usage Statistics"
                 window.styleMask = DetailedStatsWindowConfiguration.styleMask
                 window.setContentSize(DetailedStatsWindowConfiguration.initialSize)

@@ -133,6 +133,10 @@ struct BudgetConfig: Codable {
     func wholePercentUsed(for used: Int) -> Int {
         Int(usagePercentage(used: used).rounded(.down))
     }
+
+    func shouldSkipMilestoneNotification(for percentage: Int) -> Bool {
+        customAlertThresholds.contains(percentage)
+    }
     
     /// Determine status color based on usage
     func statusColor(used: Int) -> StatusColor {

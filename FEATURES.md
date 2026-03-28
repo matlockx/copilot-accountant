@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.2
+## Version: 1.0.3
 ## Last Updated: 2026-03-28
 
 ---
@@ -74,6 +74,7 @@
 - Fetches usage immediately on app start
 - Timer-based polling continues in background
 - Manual "Refresh Now" option in menu
+- Manual refresh does not emit per-percent milestone notifications on its own
 
 ### F007: Notifications
 **Status:** Implemented  
@@ -82,6 +83,7 @@
 - Configurable threshold alerts at 80% and 90%
 - Configurable custom threshold alerts with per-alert enable/disable and add/remove controls
 - Optional notifications at every newly reached full usage percentage
+- Per-percent milestone notifications are deduplicated against matching custom-threshold notifications for the same percentage
 - Only alerts once per threshold per billing cycle
 - Resets alert state when usage drops (new month)
 - API error notifications
@@ -94,8 +96,12 @@
 
 - Saves configuration to UserDefaults
 - Settings window keeps `Cancel` and `Save` visible in a pinned footer while the rest of the form scrolls
+- Settings window keeps symmetric horizontal padding so section cards do not crowd the left or right edges
 - Settings content uses a consistent two-column layout with right-aligned controls and equal-width utility buttons
+- Notification checkboxes align in a shared vertical column, with custom alert percentages positioned before that checkbox column
+- Pressing `Escape` closes the Settings window
 - Saved token can be revealed or hidden from Settings without retyping it
+- Settings layout has visual regression coverage for critical spacing and control-column sizing
 - Persists:
   - GitHub username
   - Monthly budget (default: 300)
@@ -151,8 +157,11 @@
 
 - Separate window with charts (requires macOS 14.0+)
 - Window is resizable with a sensible minimum size
+- Pressing `Escape` closes the statistics window
 - Daily usage bar chart
 - Model breakdown pie chart (SectorMark)
+- Usage details include billed dollar totals, included budget vs overage, and per-model cost factors from GitHub billing data
+- Model pricing details reflect GitHub billing unit prices directly and only show meaningful relative factors when prices differ
 - Product breakdown list
 - Progress bar with color coding
 - Days until reset display
@@ -280,3 +289,8 @@ struct ModelUsage: Identifiable {
 
 ### 1.0.2 (2026-03-28)
 - F014: Added a custom app icon to the macOS bundle
+
+### 1.0.3 (2026-03-28)
+- F006: Manual refresh no longer triggers per-percent milestone notifications
+- F008: Restored stable settings padding and checkbox-column alignment
+- F008/F013: Pressing Escape closes open app windows

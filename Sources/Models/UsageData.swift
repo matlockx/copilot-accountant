@@ -79,3 +79,49 @@ struct ModelUsage: Identifiable {
     let requestCount: Double
     let percentage: Double
 }
+
+struct BillingSummary: Equatable {
+    let includedRequests: Int
+    let usedRequests: Int
+    let overageRequests: Int
+    let grossCost: Double
+    let netCost: Double
+}
+
+extension UsageResponse {
+    var totalGrossCost: Double {
+        usageItems.reduce(0) { $0 + $1.grossAmount }
+    }
+
+    var totalNetCost: Double {
+        usageItems.reduce(0) { $0 + $1.netAmount }
+    }
+
+    var totalDiscountAmount: Double {
+        usageItems.reduce(0) { $0 + $1.discountAmount }
+    }
+
+    var modelCostFactors: [String: Double] {
+        let unitPrices = Dictionary(grouping: usageItems, by: \ .model)
+            .compactMapValues { items in items.first?.pricePerUnit }
+
+        guard let cheapest = unitPrices.values.min(), cheapest > 0 else { return [:] }
+
+        return unitPrices.mapValues { $0 / cheapest }
+    }
+
+    var hasMeaningfulModelFactors: Bool {
+        Set(usageItems.map { $0.pricePerUnit }).count > 1
+    }
+
+    func billingSummary(includedRequests: Int) -> BillingSummary {
+        let used = totalRequests
+        return BillingSummary(
+            includedRequests: includedRequests,
+            usedRequests: used,
+            overageRequests: max(0, used - includedRequests),
+            grossCost: totalGrossCost,
+            netCost: totalNetCost
+        )
+    }
+}

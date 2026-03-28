@@ -103,6 +103,11 @@ struct SettingsTests {
             test.assertEqual(SettingsViewConfiguration.windowSize.width, 520, "Settings window width stays consistent")
             test.assertEqual(SettingsViewConfiguration.windowSize.height, 620, "Settings window height stays consistent")
         }
+
+        test.run("test_Settings_EscapeKey_ClosesOpenWindows") {
+            test.assertTrue(SettingsViewConfiguration.escapeKeyClosesWindow, "Settings window closes with Escape")
+            test.assertTrue(DetailedStatsWindowConfiguration.escapeKeyClosesWindow, "Detailed stats window closes with Escape")
+        }
         
         test.printSummary()
     }

@@ -28,19 +28,23 @@ struct SettingsLayoutTests {
             test.assertEqual(SettingsViewConfiguration.layoutStyle, .twoColumnGrid, "Settings use a two-column grid layout")
             test.assertEqual(SettingsViewConfiguration.controlColumnAlignment, .trailing, "Controls align to the trailing edge")
             test.assertEqual(SettingsViewConfiguration.surfaceStyle, .tintedCards, "Settings use modern tinted cards")
+            test.assertEqual(SettingsViewConfiguration.colorStyle, .neutralGray, "Settings use a neutral gray palette")
         }
 
         test.run("test_SettingsLayout_UsesSharedButtonAndFieldWidths") {
             test.assertEqual(SettingsViewConfiguration.utilityButtonWidth, 120, "Utility buttons use a shared width")
             test.assertEqual(SettingsViewConfiguration.valueFieldWidth, 96, "Value fields use a shared width")
             test.assertEqual(SettingsViewConfiguration.toggleColumnWidth, 32, "Toggle column uses a stable width")
-            test.assertEqual(SettingsViewConfiguration.notificationControlWidth, 272, "Notification controls reserve a stable right column")
+            test.assertEqual(SettingsViewConfiguration.notificationControlWidth, 316, "Notification controls reserve a stable right column")
+            test.assertEqual(SettingsViewConfiguration.footerButtonWidth, 120, "Footer buttons share a common width")
         }
 
         test.run("test_SettingsLayout_CustomAlertsSupportCheckboxes") {
             test.assertEqual(NotificationSettingsConfiguration.customAlertFieldTitle, "Custom alerts", "Custom alert section label is stable")
             test.assertEqual(NotificationSettingsConfiguration.customAlertToggleTitle, "Enabled", "Custom alerts include an enabled checkbox")
             test.assertEqual(SettingsViewConfiguration.customAlertLayout, .valueCheckboxRemove, "Custom alerts place value before checkbox and remove action")
+            test.assertEqual(SettingsViewConfiguration.checkboxColumnAlignment, .sharedVerticalColumn, "Checkboxes align in one vertical column")
+            test.assertEqual(SettingsViewConfiguration.formOuterPadding, 24, "Settings cards keep consistent horizontal padding")
         }
 
         test.run("test_SettingsLayout_TokenRevealTargetsSavedToken") {

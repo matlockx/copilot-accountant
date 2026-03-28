@@ -25,7 +25,14 @@ struct DetailedStatsView: View {
                     modelBreakdownSection()
                     Divider()
                 }
-                
+
+                if let usage = tracker.currentUsage {
+                    billingSummarySection(usage: usage)
+                    Divider()
+                    modelCostSection(usage: usage)
+                    Divider()
+                }
+                 
                 // Product breakdown
                 if let usage = tracker.currentUsage {
                     productBreakdownSection(usage: usage)
@@ -174,6 +181,60 @@ struct DetailedStatsView: View {
             .padding(.top, 10)
         }
     }
+
+    private func billingSummarySection(usage: UsageResponse) -> some View {
+        let summary = usage.billingSummary(includedRequests: tracker.config.monthlyBudget)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Billing Summary")
+                .font(.headline)
+
+            HStack(spacing: 24) {
+                billingStat(title: "Included in Plan", value: "\(summary.includedRequests)", footnote: "requests")
+                billingStat(title: "Overage", value: "\(summary.overageRequests)", footnote: "requests")
+                billingStat(title: "Billed", value: currency(summary.netCost), footnote: "after discounts")
+            }
+
+            Text("GitHub usage data reports gross cost, discounts, and billed net cost. Charges start when usage exceeds the included requests in your plan.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func modelCostSection(usage: UsageResponse) -> some View {
+        let modelPrices = Dictionary(grouping: usage.usageItems, by: \.model)
+            .compactMapValues { $0.first?.pricePerUnit }
+        
+        let cheapestPrice = modelPrices.values.min() ?? 1.0
+        let sortedPrices = modelPrices.sorted { lhs, rhs in
+            if lhs.value != rhs.value { return lhs.value > rhs.value }
+            return lhs.key < rhs.key
+        }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Model Cost Factors")
+                .font(.headline)
+
+            ForEach(sortedPrices, id: \.key) { model, unitPrice in
+                let factor = cheapestPrice > 0 ? unitPrice / cheapestPrice : 1.0
+                HStack {
+                    Text(model)
+                    Spacer()
+                    if usage.hasMeaningfulModelFactors {
+                        Text(String(format: "x%.1f", factor))
+                            .font(.body.monospacedDigit())
+                    }
+                    Text("@ \(currency(unitPrice))/request")
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 2)
+            }
+
+            Text(usage.hasMeaningfulModelFactors ? "Factor is relative to the cheapest model in this billing period. Higher factors consume premium request value faster." : "GitHub billed all listed models at the same unit price in this billing period.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
     
     private func productBreakdownSection(usage: UsageResponse) -> some View {
         VStack(alignment: .leading) {
@@ -212,6 +273,27 @@ struct DetailedStatsView: View {
         } else {
             return .green
         }
+    }
+
+    private func billingStat(title: String, value: String, footnote: String) -> some View {
+        VStack {
+            Text(value)
+                .font(.system(size: 32, weight: .semibold))
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(footnote)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func currency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        return formatter.string(from: NSNumber(value: amount)) ?? String(format: "$%.2f", amount)
     }
     
     private func formatDate(_ date: Date) -> String {

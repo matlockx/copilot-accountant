@@ -14,4 +14,5 @@ struct NotificationSettingsConfiguration {
     static let customAlertRowSpacing: CGFloat = 8
     static let testNotificationDelaySeconds: TimeInterval = 1.0
     static let foregroundPresentationOptionCount = 4
+    static let manualRefreshSendsMilestones = false
 }
