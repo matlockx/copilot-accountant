@@ -32,8 +32,17 @@ struct DetailedStatsView: View {
                 }
             }
             .padding()
+            .frame(maxWidth: .infinity, alignment: .top)
         }
-        .frame(width: 700, height: 600)
+        .frame(
+            minWidth: DetailedStatsWindowConfiguration.minSize.width,
+            idealWidth: DetailedStatsWindowConfiguration.initialSize.width,
+            maxWidth: .infinity,
+            minHeight: DetailedStatsWindowConfiguration.minSize.height,
+            idealHeight: DetailedStatsWindowConfiguration.initialSize.height,
+            maxHeight: .infinity,
+            alignment: .top
+        )
     }
     
     private var headerSection: some View {

@@ -44,6 +44,7 @@ mkdir -p "$OUTPUT_DIR"
 SWIFT_FILES=(
     Sources/Models/UsageData.swift
     Sources/Models/BudgetConfig.swift
+    Sources/Models/WindowConfiguration.swift
     Sources/Services/LogService.swift
     Sources/Services/KeychainService.swift
     Sources/Services/NotificationService.swift

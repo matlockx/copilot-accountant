@@ -90,6 +90,17 @@ struct DetailedStatsTests {
             test.assertEqual(usage.timePeriod.year, 2026, "Year correct")
             test.assertEqual(usage.timePeriod.month, 3, "Month correct")
         }
+
+        test.run("test_DetailedStats_WindowConfiguration_IsResizable") {
+            test.assertTrue(DetailedStatsWindowConfiguration.styleMask.contains(.resizable), "Detailed stats window supports resizing")
+            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.width, 700, "Initial width is 700")
+            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.height, 600, "Initial height is 600")
+        }
+
+        test.run("test_DetailedStats_WindowConfiguration_HasMinimumSize") {
+            test.assertEqual(DetailedStatsWindowConfiguration.minSize.width, 600, "Minimum width prevents cramped charts")
+            test.assertEqual(DetailedStatsWindowConfiguration.minSize.height, 500, "Minimum height prevents cramped charts")
+        }
         
         test.printSummary()
     }

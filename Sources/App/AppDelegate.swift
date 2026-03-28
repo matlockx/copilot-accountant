@@ -184,6 +184,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let window = NSWindow(contentViewController: hostingController)
             window.title = "Settings"
             window.styleMask = [.titled, .closable]
+            window.setContentSize(SettingsViewConfiguration.windowSize)
             window.center()
             
             settingsWindow = window
@@ -201,7 +202,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 
                 let window = NSWindow(contentViewController: hostingController)
                 window.title = "Copilot Usage Statistics"
-                window.styleMask = [.titled, .closable, .resizable]
+                window.styleMask = DetailedStatsWindowConfiguration.styleMask
+                window.setContentSize(DetailedStatsWindowConfiguration.initialSize)
+                window.minSize = DetailedStatsWindowConfiguration.minSize
                 window.center()
                 
                 detailedStatsWindow = window

@@ -67,6 +67,17 @@ struct SettingsTests {
             } else { test.assertTrue(false, "Should encode") }
             userDefaults.removeObject(forKey: testKey)
         }
+
+        test.run("test_Settings_Layout_UsesPinnedFooterForActions") {
+            test.assertEqual(SettingsViewConfiguration.actionBarPlacement, .pinnedFooter, "Cancel and Save stay visible in a fixed footer")
+            test.assertTrue(SettingsViewConfiguration.footerHeight > 0, "Pinned footer has a positive height")
+        }
+
+        test.run("test_Settings_Layout_UsesExpectedFooterButtons") {
+            test.assertEqual(SettingsViewConfiguration.footerButtonTitles, ["Cancel", "Save"], "Footer uses Cancel and Save buttons")
+            test.assertEqual(SettingsViewConfiguration.windowSize.width, 520, "Settings window width stays consistent")
+            test.assertEqual(SettingsViewConfiguration.windowSize.height, 620, "Settings window height stays consistent")
+        }
         
         test.printSummary()
     }

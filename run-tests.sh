@@ -29,6 +29,7 @@ SOURCE_FILES=(
     "Sources/Services/LogService.swift"
     "Sources/Models/UsageData.swift"
     "Sources/Models/BudgetConfig.swift"
+    "Sources/Models/WindowConfiguration.swift"
     "Sources/Services/KeychainService.swift"
     "Sources/Services/NotificationService.swift"
     "Sources/Services/GitHubAPIService.swift"

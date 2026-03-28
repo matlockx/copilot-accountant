@@ -90,6 +90,7 @@
 **Tests:** `Tests/SettingsTests.swift`
 
 - Saves configuration to UserDefaults
+- Settings window keeps `Cancel` and `Save` visible in a pinned footer while the rest of the form scrolls
 - Persists:
   - GitHub username
   - Monthly budget (default: 300)
@@ -142,6 +143,7 @@
 **Tests:** `Tests/DetailedStatsTests.swift`
 
 - Separate window with charts (requires macOS 14.0+)
+- Window is resizable with a sensible minimum size
 - Daily usage bar chart
 - Model breakdown pie chart (SectorMark)
 - Product breakdown list
