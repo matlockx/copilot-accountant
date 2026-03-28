@@ -29,11 +29,13 @@ struct SettingsTests {
             test.assertEqual(config.username, "", "Default username is empty")
             test.assertEqual(config.pollingIntervalMinutes, 5, "Default polling is 5")
             test.assertTrue(config.notificationsEnabled, "Notifications enabled")
+            test.assertFalse(config.customAlertEnabled, "Custom alert disabled by default")
+            test.assertEqual(config.customAlertPercent, 75, "Custom alert default is 75%")
             test.assertFalse(config.launchAtLogin, "Launch at login disabled")
         }
         
         test.run("test_Settings_ConfigIsCodable") {
-            let config = BudgetConfig(monthlyBudget: 500, username: "testuser", pollingIntervalMinutes: 10, notificationsEnabled: false, alertAt80Percent: true, alertAt90Percent: false, launchAtLogin: true)
+            let config = BudgetConfig(monthlyBudget: 500, username: "testuser", pollingIntervalMinutes: 10, notificationsEnabled: false, alertAt80Percent: true, alertAt90Percent: false, customAlertEnabled: true, customAlertPercent: 68, launchAtLogin: true)
             do {
                 let encoded = try JSONEncoder().encode(config)
                 let decoded = try JSONDecoder().decode(BudgetConfig.self, from: encoded)
@@ -41,6 +43,8 @@ struct SettingsTests {
                 test.assertEqual(decoded.username, "testuser", "username preserved")
                 test.assertEqual(decoded.pollingIntervalMinutes, 10, "pollingInterval preserved")
                 test.assertEqual(decoded.notificationsEnabled, false, "notificationsEnabled preserved")
+                test.assertEqual(decoded.customAlertEnabled, true, "customAlertEnabled preserved")
+                test.assertEqual(decoded.customAlertPercent, 68, "customAlertPercent preserved")
                 test.assertEqual(decoded.launchAtLogin, true, "launchAtLogin preserved")
             } catch { test.assertTrue(false, "Should not throw: \(error)") }
         }
@@ -56,16 +60,22 @@ struct SettingsTests {
         test.run("test_Settings_UserDefaultsStorage") {
             let testKey = "testBudgetConfig_\(UUID().uuidString)"
             let userDefaults = UserDefaults.standard
-            let config = BudgetConfig(monthlyBudget: 750, username: "persisteduser", pollingIntervalMinutes: 30, notificationsEnabled: true, alertAt80Percent: false, alertAt90Percent: true, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 750, username: "persisteduser", pollingIntervalMinutes: 30, notificationsEnabled: true, alertAt80Percent: false, alertAt90Percent: true, customAlertEnabled: true, customAlertPercent: 82, launchAtLogin: false)
             if let encoded = try? JSONEncoder().encode(config) {
                 userDefaults.set(encoded, forKey: testKey)
                 if let data = userDefaults.data(forKey: testKey),
                    let decoded = try? JSONDecoder().decode(BudgetConfig.self, from: data) {
                     test.assertEqual(decoded.monthlyBudget, 750, "Budget persisted")
                     test.assertEqual(decoded.username, "persisteduser", "Username persisted")
+                    test.assertEqual(decoded.customAlertPercent, 82, "Custom alert percent persisted")
                 } else { test.assertTrue(false, "Should decode") }
             } else { test.assertTrue(false, "Should encode") }
             userDefaults.removeObject(forKey: testKey)
+        }
+
+        test.run("test_Settings_NotificationSection_IncludesCustomAlertControl") {
+            test.assertEqual(NotificationSettingsConfiguration.customAlertFieldTitle, "Custom alert at", "Settings exposes custom threshold label")
+            test.assertEqual(NotificationSettingsConfiguration.customAlertSuffix, "%", "Custom threshold uses percent suffix")
         }
 
         test.run("test_Settings_Layout_UsesPinnedFooterForActions") {

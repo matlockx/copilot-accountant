@@ -8,6 +8,8 @@ struct BudgetConfig: Codable {
     var notificationsEnabled: Bool
     var alertAt80Percent: Bool
     var alertAt90Percent: Bool
+    var customAlertEnabled: Bool
+    var customAlertPercent: Int
     var launchAtLogin: Bool
     
     static let `default` = BudgetConfig(
@@ -17,6 +19,8 @@ struct BudgetConfig: Codable {
         notificationsEnabled: true,
         alertAt80Percent: true,
         alertAt90Percent: true,
+        customAlertEnabled: false,
+        customAlertPercent: 75,
         launchAtLogin: false
     )
     
@@ -28,6 +32,16 @@ struct BudgetConfig: Codable {
     /// Returns the alert threshold value for 90%
     var threshold90: Int {
         Int(Double(monthlyBudget) * 0.9)
+    }
+
+    /// Returns the alert threshold value for the custom percentage
+    var customThreshold: Int {
+        Int(Double(monthlyBudget) * (Double(clampedCustomAlertPercent) / 100.0))
+    }
+
+    /// Clamp the custom percentage to a valid notification range
+    var clampedCustomAlertPercent: Int {
+        min(max(customAlertPercent, NotificationSettingsConfiguration.customAlertMinPercent), NotificationSettingsConfiguration.customAlertMaxPercent)
     }
     
     /// Calculate usage percentage

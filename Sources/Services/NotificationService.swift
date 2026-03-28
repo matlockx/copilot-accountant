@@ -10,8 +10,10 @@ class NotificationService {
     enum NotificationType {
         case threshold80
         case threshold90
+        case customThreshold(Int)
         case resetSoon
         case apiError
+        case test
     }
     
     /// Request notification permissions
@@ -38,7 +40,12 @@ class NotificationService {
             content.title = "⚠️ Budget Alert: 90% Used"
             content.body = "You've used \(currentUsage) of \(budget) premium requests (90%)"
             content.sound = .defaultCritical
-            
+
+        case .customThreshold(let percentage):
+            content.title = "Budget Alert: \(percentage)% Used"
+            content.body = "You've used \(currentUsage) of \(budget) premium requests (\(percentage)%)"
+            content.sound = .default
+             
         case .resetSoon:
             content.title = "Budget Resets Tomorrow"
             content.body = "Your \(budget) premium requests will reset on the 1st"
@@ -47,6 +54,11 @@ class NotificationService {
         case .apiError:
             content.title = "GitHub API Error"
             content.body = "Failed to fetch usage data. Check your connection and token."
+            content.sound = .default
+
+        case .test:
+            content.title = "Copilot Accountant Test"
+            content.body = "Notifications are working correctly on this Mac."
             content.sound = .default
         }
         

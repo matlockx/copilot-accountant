@@ -80,10 +80,12 @@
 **Tests:** `Tests/NotificationTests.swift`
 
 - Configurable threshold alerts at 80% and 90%
+- Configurable custom threshold alert percentage
 - Only alerts once per threshold per billing cycle
 - Resets alert state when usage drops (new month)
 - API error notifications
 - Reset reminder notifications
+- Settings includes a button to send a test notification on demand
 
 ### F008: Settings Persistence
 **Status:** Implemented  
@@ -97,6 +99,7 @@
   - Polling interval
   - Notification preferences
   - Alert thresholds (80%, 90%)
+  - Custom alert threshold percentage
   - Launch at login preference
 - Caches last usage data for offline display
 

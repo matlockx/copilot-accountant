@@ -43,6 +43,7 @@ mkdir -p "$OUTPUT_DIR"
 # Collect all Swift files
 SWIFT_FILES=(
     Sources/Models/AppIconConfiguration.swift
+    Sources/Models/NotificationSettingsConfiguration.swift
     Sources/Models/UsageData.swift
     Sources/Models/BudgetConfig.swift
     Sources/Models/WindowConfiguration.swift

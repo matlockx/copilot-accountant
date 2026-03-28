@@ -22,12 +22,14 @@ class UsageTracker: ObservableObject {
     private var pollingTimer: Timer?
     private var hasAlerted80 = false
     private var hasAlerted90 = false
+    private var hasAlertedCustom = false
     
     private let configKey = "budgetConfig"
     private let dailyUsageKey = "cachedDailyUsage"
     private let lastUsageKey = "cachedUsage"
     private let alert80Key = "hasAlerted80"
     private let alert90Key = "hasAlerted90"
+    private let alertCustomKey = "hasAlertedCustom"
     
     init() {
         log.info("UsageTracker initializing")
@@ -48,6 +50,7 @@ class UsageTracker: ObservableObject {
         // Load alert states
         hasAlerted80 = userDefaults.bool(forKey: alert80Key)
         hasAlerted90 = userDefaults.bool(forKey: alert90Key)
+        hasAlertedCustom = userDefaults.bool(forKey: alertCustomKey)
     }
 
     static func postUsageUpdatedNotification() {
@@ -170,8 +173,10 @@ class UsageTracker: ObservableObject {
         if used < threshold80 {
             hasAlerted80 = false
             hasAlerted90 = false
+            hasAlertedCustom = false
             userDefaults.set(false, forKey: alert80Key)
             userDefaults.set(false, forKey: alert90Key)
+            userDefaults.set(false, forKey: alertCustomKey)
         }
         
         guard config.notificationsEnabled else { return }
@@ -185,6 +190,16 @@ class UsageTracker: ObservableObject {
             )
             hasAlerted90 = true
             userDefaults.set(true, forKey: alert90Key)
+        }
+
+        if config.customAlertEnabled && used >= config.customThreshold && !hasAlertedCustom {
+            notificationService.sendNotification(
+                type: .customThreshold(config.clampedCustomAlertPercent),
+                currentUsage: used,
+                budget: config.monthlyBudget
+            )
+            hasAlertedCustom = true
+            userDefaults.set(true, forKey: alertCustomKey)
         }
         
         // 80% alert
@@ -206,6 +221,10 @@ class UsageTracker: ObservableObject {
                 budget: config.monthlyBudget
             )
         }
+    }
+
+    func sendTestNotification() {
+        notificationService.sendNotification(type: .test, currentUsage: currentUsage?.totalRequests ?? 0, budget: config.monthlyBudget)
     }
     
     /// Save configuration

@@ -28,7 +28,7 @@ struct MenuBarTests {
         }
         
         test.run("test_MenuBar_StatusColorThresholds") {
-            let config = BudgetConfig(monthlyBudget: 100, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 100, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
             test.assertTrue(config.statusColor(used: 0) == .green, "0% is green")
             test.assertTrue(config.statusColor(used: 59) == .green, "59% is green")
             test.assertTrue(config.statusColor(used: 60) == .yellow, "60% is yellow")
@@ -50,14 +50,14 @@ struct MenuBarTests {
         }
         
         test.run("test_MenuBar_PercentageFormat_OneDecimalPlace") {
-            let config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
             let percentage = config.usagePercentage(used: 150)
             let formatted = String(format: "%@ %.1f%%", "🟢", percentage)
             test.assertEqual(formatted, "🟢 50.0%", "Format is 'emoji percentage%' with one decimal")
         }
         
         test.run("test_MenuBar_PercentageFormat_ShowsDecimal") {
-            let config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
             let percentage = config.usagePercentage(used: 86)  // 28.666...%
             let formatted = String(format: "%@ %.1f%%", "🟢", percentage)
             test.assertEqual(formatted, "🟢 28.7%", "Shows one decimal place (28.7% not 29%)")
@@ -70,7 +70,7 @@ struct MenuBarTests {
         }
         
         test.run("test_MenuBar_ZeroBudgetHandling") {
-            let config = BudgetConfig(monthlyBudget: 0, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 0, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
             test.assertEqual(config.usagePercentage(used: 100), 0.0, "Zero budget returns 0%")
         }
         

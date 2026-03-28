@@ -28,6 +28,7 @@ mkdir -p "$BUILD_DIR"
 SOURCE_FILES=(
     "Sources/Services/LogService.swift"
     "Sources/Models/AppIconConfiguration.swift"
+    "Sources/Models/NotificationSettingsConfiguration.swift"
     "Sources/Models/UsageData.swift"
     "Sources/Models/BudgetConfig.swift"
     "Sources/Models/WindowConfiguration.swift"

@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var notificationsEnabled: Bool
     @State private var alertAt80: Bool
     @State private var alertAt90: Bool
+    @State private var customAlertEnabled: Bool
+    @State private var customAlertPercent: String
     @State private var launchAtLogin: Bool
     @State private var showingTokenSaved = false
     @State private var showingValidationError = false
@@ -28,6 +30,8 @@ struct SettingsView: View {
         _notificationsEnabled = State(initialValue: tracker.config.notificationsEnabled)
         _alertAt80 = State(initialValue: tracker.config.alertAt80Percent)
         _alertAt90 = State(initialValue: tracker.config.alertAt90Percent)
+        _customAlertEnabled = State(initialValue: tracker.config.customAlertEnabled)
+        _customAlertPercent = State(initialValue: String(tracker.config.customAlertPercent))
         _launchAtLogin = State(initialValue: tracker.config.launchAtLogin)
         
         // Load saved token preview
@@ -186,6 +190,24 @@ struct SettingsView: View {
                         .disabled(!notificationsEnabled)
                     Toggle("Alert at 90% usage", isOn: $alertAt90)
                         .disabled(!notificationsEnabled)
+
+                    HStack {
+                        Toggle(NotificationSettingsConfiguration.customAlertFieldTitle, isOn: $customAlertEnabled)
+                            .disabled(!notificationsEnabled)
+
+                        TextField("75", text: $customAlertPercent)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 50)
+                            .disabled(!notificationsEnabled || !customAlertEnabled)
+
+                        Text(NotificationSettingsConfiguration.customAlertSuffix)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Button(NotificationSettingsConfiguration.testButtonTitle) {
+                        tracker.sendTestNotification()
+                    }
+                    .disabled(!notificationsEnabled)
                 }
 
                 Section("Startup") {
@@ -304,6 +326,8 @@ struct SettingsView: View {
         tracker.config.notificationsEnabled = notificationsEnabled
         tracker.config.alertAt80Percent = alertAt80
         tracker.config.alertAt90Percent = alertAt90
+        tracker.config.customAlertEnabled = customAlertEnabled
+        tracker.config.customAlertPercent = Int(customAlertPercent) ?? tracker.config.customAlertPercent
         tracker.config.launchAtLogin = launchAtLogin
         
         tracker.saveConfig()
