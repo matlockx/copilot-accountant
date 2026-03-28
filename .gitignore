@@ -1,0 +1,51 @@
+# macOS build artifacts
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Environment and secrets
+.env
+
+# Build outputs
+.build/
+*.app/
+test_app
+debug.log
+
+# Editor settings
+.vscode/
+.idea/
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+!default.xcworkspace
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace/
+
+# Swift Package Manager
+Packages/
+Package.resolved
+.swiftpm/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+iOSInjectionProject/
