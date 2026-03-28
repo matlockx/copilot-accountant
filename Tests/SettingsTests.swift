@@ -100,7 +100,7 @@ struct SettingsTests {
 
         test.run("test_Settings_Layout_UsesExpectedFooterButtons") {
             test.assertEqual(SettingsViewConfiguration.footerButtonTitles, ["Cancel", "Save"], "Footer uses Cancel and Save buttons")
-            test.assertEqual(SettingsViewConfiguration.windowSize.width, 520, "Settings window width stays consistent")
+            test.assertEqual(SettingsViewConfiguration.windowSize.width, 620, "Settings window width accommodates two-column grid")
             test.assertEqual(SettingsViewConfiguration.windowSize.height, 620, "Settings window height stays consistent")
         }
 

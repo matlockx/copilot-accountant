@@ -47,7 +47,7 @@ struct SettingsViewConfiguration {
     static let colorStyle: SettingsColorStyle = .neutralGray
     static let footerHeight: CGFloat = 60
     static let footerButtonTitles = ["Cancel", "Save"]
-    static let windowSize = CGSize(width: 520, height: 620)
+    static let windowSize = CGSize(width: 620, height: 620)
     static let formOuterPadding: CGFloat = 24
     static let formLabelWidth: CGFloat = 190
     static let formFieldSpacing: CGFloat = 12

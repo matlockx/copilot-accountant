@@ -67,6 +67,67 @@ struct SettingsVisualTests {
             test.assertEqual(SettingsViewConfiguration.footerButtonWidth, 120, "Footer buttons keep stable width")
         }
 
+        test.run("test_SettingsVisual_ContentFitsWithinWindowBounds") {
+            // Window width minus horizontal padding on both sides = available content width
+            let windowWidth = SettingsViewConfiguration.windowSize.width
+            let horizontalPadding = SettingsViewConfiguration.formOuterPadding * 2
+            let availableContentWidth = windowWidth - horizontalPadding
+            
+            // The card has internal padding of 20 on each side
+            let cardInternalPadding: CGFloat = 20 * 2
+            let availableGridWidth = availableContentWidth - cardInternalPadding
+            
+            // Grid must fit: label column + spacing + control column
+            let labelWidth = SettingsViewConfiguration.formLabelWidth
+            let spacing = SettingsViewConfiguration.formFieldSpacing
+            let controlWidth = SettingsViewConfiguration.notificationControlWidth
+            let requiredGridWidth = labelWidth + spacing + controlWidth
+            
+            test.assertTrue(availableContentWidth > 0, "Available content width is positive: \(availableContentWidth)")
+            test.assertTrue(availableGridWidth >= requiredGridWidth, 
+                "Grid fits within card: available=\(availableGridWidth), required=\(requiredGridWidth)")
+            
+            // Verify token row fits: tokenFieldWidth + spacing + eye button (~24)
+            let eyeButtonWidth: CGFloat = 24
+            let tokenRowWidth = SettingsViewConfiguration.tokenFieldWidth + spacing + eyeButtonWidth
+            test.assertTrue(tokenRowWidth <= controlWidth, 
+                "Token row fits in control column: row=\(tokenRowWidth), column=\(controlWidth)")
+        }
+
+        test.run("test_SettingsVisual_HorizontalPaddingIsSymmetric") {
+            // Ensure padding is applied equally on both sides
+            let padding = SettingsViewConfiguration.formOuterPadding
+            test.assertTrue(padding > 0, "Outer padding is positive")
+            test.assertTrue(padding >= 20, "Outer padding provides sufficient margin (>=20pt)")
+            test.assertTrue(padding <= 40, "Outer padding is not excessive (<=40pt)")
+            
+            // Content width after padding should leave room for two-column layout
+            let windowWidth = SettingsViewConfiguration.windowSize.width
+            let contentWidth = windowWidth - (padding * 2)
+            let minTwoColumnWidth: CGFloat = 400 // Minimum for readable two-column layout
+            test.assertTrue(contentWidth >= minTwoColumnWidth, 
+                "Content area supports two-column layout: \(contentWidth) >= \(minTwoColumnWidth)")
+        }
+
+        test.run("test_SettingsVisual_SectionTitlesHaveSpaceToRender") {
+            // Section titles render at the left edge of content area
+            // They need the full content width available
+            let windowWidth = SettingsViewConfiguration.windowSize.width
+            let padding = SettingsViewConfiguration.formOuterPadding
+            let contentWidth = windowWidth - (padding * 2)
+            
+            // Longest section title is approximately "Troubleshooting" = 15 chars
+            // At ~8pt per character in .title3 weight, that's ~120pt minimum
+            let estimatedTitleWidth: CGFloat = 150 // Conservative estimate with font weight
+            test.assertTrue(contentWidth >= estimatedTitleWidth, 
+                "Content width accommodates section titles: \(contentWidth) >= \(estimatedTitleWidth)")
+            
+            // Verify padding doesn't eat into required label space
+            let labelWidth = SettingsViewConfiguration.formLabelWidth
+            test.assertTrue(contentWidth > labelWidth, 
+                "Content width exceeds label column: \(contentWidth) > \(labelWidth)")
+        }
+
         test.printSummary()
     }
 }

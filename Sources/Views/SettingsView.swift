@@ -47,7 +47,7 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 28) {
                     settingsSection("GitHub Account") {
                         settingsGrid {
@@ -284,10 +284,10 @@ struct SettingsView: View {
                         }
                     }
             }
-            .frame(maxWidth: .infinity)
             .padding(.horizontal, SettingsViewConfiguration.formOuterPadding)
             .padding(.top, SettingsViewConfiguration.formOuterPadding)
             .padding(.bottom, 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(
             LinearGradient(
