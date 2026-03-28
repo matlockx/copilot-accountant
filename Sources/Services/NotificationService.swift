@@ -2,10 +2,13 @@ import Foundation
 import UserNotifications
 
 /// Service for sending system notifications
-class NotificationService {
+class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationService()
     
-    private init() {}
+    private override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+    }
     
     enum NotificationType {
         case threshold80
@@ -29,6 +32,7 @@ class NotificationService {
     /// Send a notification
     func sendNotification(type: NotificationType, currentUsage: Int, budget: Int) {
         let content = UNMutableNotificationContent()
+        var trigger: UNNotificationTrigger?
         
         switch type {
         case .threshold80:
@@ -60,12 +64,13 @@ class NotificationService {
             content.title = "Copilot Accountant Test"
             content.body = "Notifications are working correctly on this Mac."
             content.sound = .default
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: NotificationSettingsConfiguration.testNotificationDelaySeconds, repeats: false)
         }
         
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: content,
-            trigger: nil // Immediate delivery
+            trigger: trigger
         )
         
         UNUserNotificationCenter.current().add(request) { error in
@@ -73,6 +78,14 @@ class NotificationService {
                 print("Failed to send notification: \(error)")
             }
         }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound, .badge])
     }
     
     /// Check if we're approaching reset date

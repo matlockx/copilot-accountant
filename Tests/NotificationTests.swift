@@ -69,6 +69,11 @@ struct NotificationTests {
         test.run("test_Notification_TestButton_UsesExpectedLabel") {
             test.assertEqual(NotificationSettingsConfiguration.testButtonTitle, "Test Notification", "Settings exposes a test notification button")
         }
+
+        test.run("test_Notification_TestButton_UsesForegroundPresentation") {
+            test.assertTrue(NotificationSettingsConfiguration.testNotificationDelaySeconds > 0, "Test notification uses a short delay for reliable delivery")
+            test.assertEqual(NotificationSettingsConfiguration.foregroundPresentationOptionCount, 4, "Foreground notifications request all expected presentation options")
+        }
         
         test.printSummary()
     }

@@ -192,20 +192,30 @@ struct SettingsView: View {
                         .disabled(!notificationsEnabled)
 
                     HStack {
-                        Toggle(NotificationSettingsConfiguration.customAlertFieldTitle, isOn: $customAlertEnabled)
+                        Toggle(isOn: $customAlertEnabled) {
+                            Text(NotificationSettingsConfiguration.customAlertFieldTitle)
+                        }
                             .disabled(!notificationsEnabled)
 
-                        TextField("75", text: $customAlertPercent)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 50)
-                            .disabled(!notificationsEnabled || !customAlertEnabled)
+                        Spacer(minLength: NotificationSettingsConfiguration.customAlertRowSpacing)
 
-                        Text(NotificationSettingsConfiguration.customAlertSuffix)
-                            .foregroundColor(.secondary)
+                        HStack(spacing: NotificationSettingsConfiguration.customAlertRowSpacing) {
+                            TextField("75", text: $customAlertPercent)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: NotificationSettingsConfiguration.customAlertFieldWidth)
+                                .multilineTextAlignment(.trailing)
+                                .disabled(!notificationsEnabled || !customAlertEnabled)
+
+                            Text(NotificationSettingsConfiguration.customAlertSuffix)
+                                .foregroundColor(.secondary)
+                        }
                     }
 
                     Button(NotificationSettingsConfiguration.testButtonTitle) {
-                        tracker.sendTestNotification()
+                        Task {
+                            _ = await NotificationService.shared.requestAuthorization()
+                            tracker.sendTestNotification()
+                        }
                     }
                     .disabled(!notificationsEnabled)
                 }

@@ -76,6 +76,8 @@ struct SettingsTests {
         test.run("test_Settings_NotificationSection_IncludesCustomAlertControl") {
             test.assertEqual(NotificationSettingsConfiguration.customAlertFieldTitle, "Custom alert at", "Settings exposes custom threshold label")
             test.assertEqual(NotificationSettingsConfiguration.customAlertSuffix, "%", "Custom threshold uses percent suffix")
+            test.assertEqual(NotificationSettingsConfiguration.customAlertFieldWidth, 56, "Custom threshold field has a compact fixed width")
+            test.assertEqual(NotificationSettingsConfiguration.customAlertRowSpacing, 8, "Custom threshold row uses consistent spacing")
         }
 
         test.run("test_Settings_Layout_UsesPinnedFooterForActions") {
