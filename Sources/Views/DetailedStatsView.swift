@@ -8,34 +8,52 @@ struct DetailedStatsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Header
-                headerSection
+            VStack(spacing: 24) {
+                // Title
+                Text("Premium request analytics")
+                    .font(.title)
+                    .bold()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Billing cards (like GitHub's UI)
+                if let usage = tracker.currentUsage {
+                    billingCardsSection(usage: usage)
+                }
+                
+                Divider()
+                
+                // Usage breakdown section
+                if let usage = tracker.currentUsage {
+                    usageBreakdownSection(usage: usage)
+                }
                 
                 Divider()
                 
                 // Daily usage chart
                 if !tracker.dailyUsage.isEmpty {
                     dailyUsageChart
-                    Divider()
                 }
                 
-                // Model breakdown
-                if !tracker.getModelUsage().isEmpty {
-                    modelBreakdownSection()
-                    Divider()
-                }
-
+                Divider()
+                
+                // Model pricing info
                 if let usage = tracker.currentUsage {
-                    billingSummarySection(usage: usage)
-                    Divider()
-                    modelCostSection(usage: usage)
-                    Divider()
+                    modelPricingSection(usage: usage)
                 }
+                
+                Divider()
                  
                 // Product breakdown
                 if let usage = tracker.currentUsage {
                     productBreakdownSection(usage: usage)
+                }
+                
+                // Last update info
+                if let lastUpdate = tracker.lastUpdateTime {
+                    Text("Last updated: \(formatDate(lastUpdate))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
             .padding()
@@ -52,65 +70,224 @@ struct DetailedStatsView: View {
         )
     }
     
-    private var headerSection: some View {
-        VStack(spacing: 10) {
-            Text("Copilot Premium Requests")
-                .font(.title)
-                .bold()
-            
-            if let usage = tracker.currentUsage {
-                let used = usage.totalRequests
-                let budget = tracker.config.monthlyBudget
-                let percentage = tracker.config.usagePercentage(used: used)
-                
-                HStack(spacing: 30) {
-                    VStack {
-                        Text("\(used)")
-                            .font(.system(size: 48, weight: .bold))
-                            .foregroundColor(statusColor(percentage: percentage))
-                        Text("Requests Used")
+    // MARK: - Billing Cards Section (like GitHub)
+    
+    private func billingCardsSection(usage: UsageResponse) -> some View {
+        let summary = usage.billingSummary(includedRequests: tracker.config.monthlyBudget)
+        let percentage = tracker.config.usagePercentage(used: summary.usedRequests)
+        
+        return HStack(spacing: 16) {
+            // Billed premium requests card
+            billingCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Billed premium requests")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    Text(currency(summary.netCost))
+                        .font(.system(size: 36, weight: .bold))
+                    
+                    if summary.netCost == 0 {
+                        Text("All usage covered by included requests")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                    }
-                    
-                    VStack {
-                        Text("\(budget)")
-                            .font(.system(size: 48, weight: .bold))
-                        Text("Monthly Budget")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    VStack {
-                        Text(String(format: "%.1f%%", percentage))
-                            .font(.system(size: 48, weight: .bold))
-                            .foregroundColor(statusColor(percentage: percentage))
-                        Text("Used")
+                    } else {
+                        Text("\(summary.overageRequests) requests beyond included limit")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
-                
-                // Progress bar
-                ProgressView(value: Double(used), total: Double(budget))
-                    .tint(statusColor(percentage: percentage))
-                    .frame(width: 400)
-                
-                Text("Resets in \(tracker.daysUntilReset()) days")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                if let lastUpdate = tracker.lastUpdateTime {
-                    Text("Last updated: \(formatDate(lastUpdate))")
-                        .font(.caption2)
+            }
+            
+            // Included premium requests card
+            billingCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Included premium requests consumed")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(String(format: "%.2f", summary.includedUsed))
+                            .font(.system(size: 36, weight: .bold))
+                        Text("of \(summary.includedRequests) included")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Progress bar
+                    ProgressView(value: min(summary.includedPercentage, 100), total: 100)
+                        .tint(statusColor(percentage: percentage))
+                    
+                    Text("Monthly limit resets in \(usage.daysUntilReset) days on \(usage.resetDateDescription)")
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            } else {
-                Text("No data available")
-                    .foregroundColor(.secondary)
             }
         }
     }
+    
+    private func billingCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
+    }
+    
+    // MARK: - Usage Breakdown Section
+    
+    private func usageBreakdownSection(usage: UsageResponse) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Usage breakdown")
+                .font(.headline)
+            
+            Text("Usage for \(usage.billingPeriodDescription). Price per premium request is \(currency(usage.pricePerRequest)).")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            HStack(alignment: .top, spacing: 24) {
+                // Pie chart
+                modelPieChart()
+                    .frame(width: 250, height: 250)
+                
+                // Model billing table
+                modelBillingTable(usage: usage)
+            }
+        }
+    }
+    
+    private func modelPieChart() -> some View {
+        let modelUsage = tracker.getModelUsage()
+        
+        return Chart(modelUsage) { item in
+            SectorMark(
+                angle: .value("Count", item.requestCount),
+                innerRadius: .ratio(0.5),
+                angularInset: 1
+            )
+            .foregroundStyle(by: .value("Model", item.modelName))
+            .annotation(position: .overlay) {
+                if item.percentage > 8 {
+                    Text(String(format: "%.0f%%", item.percentage))
+                        .font(.caption2.bold())
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .chartLegend(.hidden)
+    }
+    
+    private func modelBillingTable(usage: UsageResponse) -> some View {
+        let details = usage.modelBillingDetails()
+        
+        return VStack(alignment: .leading, spacing: 0) {
+            // Header row
+            HStack(spacing: 0) {
+                Text("Model")
+                    .frame(width: 150, alignment: .leading)
+                Text("Included")
+                    .frame(width: 80, alignment: .trailing)
+                Text("Billed")
+                    .frame(width: 70, alignment: .trailing)
+                Text("Gross")
+                    .frame(width: 70, alignment: .trailing)
+                Text("Billed")
+                    .frame(width: 70, alignment: .trailing)
+            }
+            .font(.caption.bold())
+            .foregroundColor(.secondary)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .background(Color(nsColor: .controlBackgroundColor))
+            
+            // Second header row (sub-labels)
+            HStack(spacing: 0) {
+                Text("")
+                    .frame(width: 150, alignment: .leading)
+                Text("requests")
+                    .frame(width: 80, alignment: .trailing)
+                Text("requests")
+                    .frame(width: 70, alignment: .trailing)
+                Text("amount")
+                    .frame(width: 70, alignment: .trailing)
+                Text("amount")
+                    .frame(width: 70, alignment: .trailing)
+            }
+            .font(.caption2)
+            .foregroundColor(.secondary)
+            .padding(.bottom, 4)
+            .padding(.horizontal, 8)
+            .background(Color(nsColor: .controlBackgroundColor))
+            
+            Divider()
+            
+            // Data rows
+            ForEach(details) { detail in
+                HStack(spacing: 0) {
+                    Text(detail.model)
+                        .frame(width: 150, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    
+                    Text(formatQuantity(detail.includedRequests))
+                        .frame(width: 80, alignment: .trailing)
+                    
+                    Text(formatQuantity(detail.billedRequests))
+                        .frame(width: 70, alignment: .trailing)
+                    
+                    Text(currency(detail.grossAmount))
+                        .frame(width: 70, alignment: .trailing)
+                    
+                    Text(currency(detail.billedAmount))
+                        .frame(width: 70, alignment: .trailing)
+                        .fontWeight(detail.billedAmount > 0 ? .semibold : .regular)
+                }
+                .font(.body.monospacedDigit())
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                
+                Divider()
+            }
+            
+            // Totals row
+            if !details.isEmpty {
+                HStack(spacing: 0) {
+                    Text("Total")
+                        .fontWeight(.semibold)
+                        .frame(width: 150, alignment: .leading)
+                    
+                    Text(formatQuantity(details.reduce(0) { $0 + $1.includedRequests }))
+                        .frame(width: 80, alignment: .trailing)
+                    
+                    Text(formatQuantity(details.reduce(0) { $0 + $1.billedRequests }))
+                        .frame(width: 70, alignment: .trailing)
+                    
+                    Text(currency(details.reduce(0) { $0 + $1.grossAmount }))
+                        .frame(width: 70, alignment: .trailing)
+                    
+                    Text(currency(details.reduce(0) { $0 + $1.billedAmount }))
+                        .frame(width: 70, alignment: .trailing)
+                        .fontWeight(.semibold)
+                }
+                .font(.body.monospacedDigit())
+                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+            }
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+        )
+    }
+    
+    // MARK: - Daily Usage Chart
     
     private var dailyUsageChart: some View {
         VStack(alignment: .leading) {
@@ -127,7 +304,7 @@ struct DetailedStatsView: View {
             }
             .frame(height: 200)
             .chartXAxis {
-                AxisMarks(values: .stride(by: .day, count: 5)) { value in
+                AxisMarks(values: .stride(by: .day, count: 5)) { _ in
                     AxisGridLine()
                     AxisValueLabel(format: .dateTime.day())
                 }
@@ -135,73 +312,9 @@ struct DetailedStatsView: View {
         }
     }
     
-    private func modelBreakdownSection() -> some View {
-        VStack(alignment: .leading) {
-            Text("Usage by Model")
-                .font(.headline)
-                .padding(.bottom, 5)
-            
-            let modelUsage = tracker.getModelUsage()
-            
-            Chart(modelUsage) { item in
-                SectorMark(
-                    angle: .value("Count", item.requestCount),
-                    innerRadius: .ratio(0.5),
-                    angularInset: 1
-                )
-                .foregroundStyle(by: .value("Model", item.modelName))
-                .annotation(position: .overlay) {
-                    if item.percentage > 5 {
-                        Text(String(format: "%.0f%%", item.percentage))
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                    }
-                }
-            }
-            .frame(height: 250)
-            
-            // Legend
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(modelUsage) { item in
-                    HStack {
-                        Circle()
-                            .frame(width: 10, height: 10)
-                        Text(item.modelName)
-                            .font(.caption)
-                        Spacer()
-                        Text(String(format: "%.1f requests", item.requestCount))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(String(format: "(%.1f%%)", item.percentage))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(.top, 10)
-        }
-    }
-
-    private func billingSummarySection(usage: UsageResponse) -> some View {
-        let summary = usage.billingSummary(includedRequests: tracker.config.monthlyBudget)
-
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Billing Summary")
-                .font(.headline)
-
-            HStack(spacing: 24) {
-                billingStat(title: "Included in Plan", value: "\(summary.includedRequests)", footnote: "requests")
-                billingStat(title: "Overage", value: "\(summary.overageRequests)", footnote: "requests")
-                billingStat(title: "Billed", value: currency(summary.netCost), footnote: "after discounts")
-            }
-
-            Text("GitHub usage data reports gross cost, discounts, and billed net cost. Charges start when usage exceeds the included requests in your plan.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    private func modelCostSection(usage: UsageResponse) -> some View {
+    // MARK: - Model Pricing Section
+    
+    private func modelPricingSection(usage: UsageResponse) -> some View {
         let modelPrices = Dictionary(grouping: usage.usageItems, by: \.model)
             .compactMapValues { $0.first?.pricePerUnit }
         
@@ -212,29 +325,49 @@ struct DetailedStatsView: View {
         }
 
         return VStack(alignment: .leading, spacing: 10) {
-            Text("Model Cost Factors")
+            Text("Model Pricing")
                 .font(.headline)
+            
+            if usage.allModelsSamePrice {
+                HStack {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue)
+                    Text("All models billed at \(currency(usage.pricePerRequest)) per premium request.")
+                        .foregroundColor(.secondary)
+                }
+                .font(.subheadline)
+            } else {
+                Text("Models have different pricing. Cost factor is relative to the cheapest model.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
 
             ForEach(sortedPrices, id: \.key) { model, unitPrice in
                 let factor = cheapestPrice > 0 ? unitPrice / cheapestPrice : 1.0
                 HStack {
                     Text(model)
                     Spacer()
-                    if usage.hasMeaningfulModelFactors {
-                        Text(String(format: "x%.1f", factor))
+                    if !usage.allModelsSamePrice {
+                        Text(String(format: "%.1fx", factor))
                             .font(.body.monospacedDigit())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(factor > 1 ? Color.orange.opacity(0.2) : Color.green.opacity(0.2))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
-                    Text("@ \(currency(unitPrice))/request")
+                    Text(currency(unitPrice))
                         .foregroundColor(.secondary)
+                        .font(.body.monospacedDigit())
+                    Text("/ request")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
                 }
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
             }
-
-            Text(usage.hasMeaningfulModelFactors ? "Factor is relative to the cheapest model in this billing period. Higher factors consume premium request value faster." : "GitHub billed all listed models at the same unit price in this billing period.")
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
     }
+    
+    // MARK: - Product Breakdown Section
     
     private func productBreakdownSection(usage: UsageResponse) -> some View {
         VStack(alignment: .leading) {
@@ -255,13 +388,15 @@ struct DetailedStatsView: View {
                         .font(.body)
                     Spacer()
                     Text(String(format: "%.1f requests", count))
-                        .font(.body)
+                        .font(.body.monospacedDigit())
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 2)
             }
         }
     }
+    
+    // MARK: - Helpers
     
     private func statusColor(percentage: Double) -> Color {
         if percentage >= 90 {
@@ -275,25 +410,23 @@ struct DetailedStatsView: View {
         }
     }
 
-    private func billingStat(title: String, value: String, footnote: String) -> some View {
-        VStack {
-            Text(value)
-                .font(.system(size: 32, weight: .semibold))
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text(footnote)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     private func currency(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = "USD"
         return formatter.string(from: NSNumber(value: amount)) ?? String(format: "$%.2f", amount)
+    }
+    
+    private func formatQuantity(_ value: Double) -> String {
+        if value == 0 {
+            return "0"
+        } else if value < 1 {
+            return String(format: "%.2f", value)
+        } else if value == floor(value) {
+            return String(format: "%.0f", value)
+        } else {
+            return String(format: "%.2f", value)
+        }
     }
     
     private func formatDate(_ date: Date) -> String {

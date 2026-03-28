@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.3
+## Version: 1.0.4
 ## Last Updated: 2026-03-28
 
 ---
@@ -158,11 +158,14 @@
 - Separate window with charts (requires macOS 14.0+)
 - Window is resizable with a sensible minimum size
 - Pressing `Escape` closes the statistics window
+- **Billing summary cards** showing billed premium requests ($X.XX) and included requests consumed (X of Y with percentage)
 - Daily usage bar chart
 - Model breakdown pie chart (SectorMark)
-- Usage details include billed dollar totals, included budget vs overage, and per-model cost factors from GitHub billing data
+- **Detailed model billing table** with columns: Model, Included requests, Billed requests, Gross amount, Billed amount
+- **Per-model billing breakdown** calculated from API data (included = grossQuantity - netQuantity, billed = netQuantity)
 - Model pricing details reflect GitHub billing unit prices directly and only show meaningful relative factors when prices differ
-- Product breakdown list
+- **Billing period information** showing date range and days until reset
+- Price per premium request display ($0.04)
 - Progress bar with color coding
 - Days until reset display
 
@@ -294,3 +297,12 @@ struct ModelUsage: Identifiable {
 - F006: Manual refresh no longer triggers per-percent milestone notifications
 - F008: Restored stable settings padding and checkbox-column alignment
 - F008/F013: Pressing Escape closes open app windows
+
+### 1.0.4 (2026-03-28)
+- F013: Enhanced Detailed Statistics view with comprehensive billing information
+  - Added billing summary cards (billed amount + included consumption)
+  - Added detailed model billing table with included/billed breakdown
+  - Added billing period dates and reset countdown
+  - Improved model pricing display (clearer when all prices are equal)
+- F008: Fixed Settings window width to prevent layout clipping (520→620pt)
+- F008: Fixed Settings window not responding on first open (LSUIElement activation)

@@ -36,6 +36,27 @@ func createTestUsage(models: [(String, Double, Double?)]) -> UsageResponse {
     return try! decoder.decode(UsageResponse.self, from: data)
 }
 
+/// Extended test helper that supports specifying billed (net) quantities for overage testing
+func createTestUsageWithBilling(models: [(model: String, gross: Double, net: Double, price: Double)]) -> UsageResponse {
+    var items: [[String: Any]] = []
+    for item in models {
+        let grossAmount = item.gross * item.price
+        let netAmount = item.net * item.price
+        let discountAmount = grossAmount - netAmount
+        items.append([
+            "product": "copilot", "sku": "premium", "model": item.model, "unitType": "requests",
+            "pricePerUnit": item.price, 
+            "grossQuantity": item.gross, "grossAmount": grossAmount,
+            "discountQuantity": item.gross - item.net, "discountAmount": discountAmount,
+            "netQuantity": item.net, "netAmount": netAmount
+        ])
+    }
+    let response: [String: Any] = ["timePeriod": ["year": 2026, "month": 3], "user": "testuser", "usageItems": items]
+    let data = try! JSONSerialization.data(withJSONObject: response)
+    let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
+    return try! decoder.decode(UsageResponse.self, from: data)
+}
+
 @main
 struct DetailedStatsTests {
     static func main() {
@@ -127,6 +148,114 @@ struct DetailedStatsTests {
         test.run("test_DetailedStats_WindowConfiguration_HasMinimumSize") {
             test.assertEqual(DetailedStatsWindowConfiguration.minSize.width, 600, "Minimum width prevents cramped charts")
             test.assertEqual(DetailedStatsWindowConfiguration.minSize.height, 500, "Minimum height prevents cramped charts")
+        }
+
+        // New tests for enhanced billing details
+        
+        test.run("test_DetailedStats_PricePerRequest_ExtractsFromUsageItems") {
+            let usage = createTestUsage(models: [("claude-opus", 100.0, 0.04)])
+            test.assertApproximatelyEqual(usage.pricePerRequest, 0.04, tolerance: 0.001, "Price per request extracted from usage items")
+        }
+        
+        test.run("test_DetailedStats_PricePerRequest_DefaultsWhenEmpty") {
+            let usage = createTestUsage(models: [])
+            test.assertApproximatelyEqual(usage.pricePerRequest, 0.04, tolerance: 0.001, "Price per request defaults to 0.04 when no items")
+        }
+        
+        test.run("test_DetailedStats_AllModelsSamePrice_TrueWhenEqual") {
+            let usage = createTestUsage(models: [("model-a", 50.0, 0.04), ("model-b", 30.0, 0.04)])
+            test.assertTrue(usage.allModelsSamePrice, "All models same price when prices equal")
+        }
+        
+        test.run("test_DetailedStats_AllModelsSamePrice_FalseWhenDifferent") {
+            let usage = createTestUsage(models: [("cheap", 50.0, 0.04), ("expensive", 30.0, 0.14)])
+            test.assertTrue(!usage.allModelsSamePrice, "Not all same price when prices differ")
+        }
+        
+        test.run("test_DetailedStats_BillingPeriodDescription_FormatsCorrectly") {
+            let usage = createTestUsage(models: [("model", 10.0, nil)])
+            test.assertEqual(usage.billingPeriodDescription, "Mar 1 - Mar 31, 2026", "Billing period formatted correctly")
+        }
+        
+        test.run("test_DetailedStats_ResetDate_CalculatesNextMonth") {
+            let usage = createTestUsage(models: [("model", 10.0, nil)])
+            let calendar = Calendar.current
+            let resetDate = usage.resetDate
+            let components = calendar.dateComponents([.year, .month, .day], from: resetDate)
+            test.assertEqual(components.year, 2026, "Reset year is 2026")
+            test.assertEqual(components.month, 4, "Reset month is April (next month)")
+            test.assertEqual(components.day, 1, "Reset day is 1st")
+        }
+        
+        test.run("test_DetailedStats_ResetDateDescription_FormatsCorrectly") {
+            let usage = createTestUsage(models: [("model", 10.0, nil)])
+            test.assertEqual(usage.resetDateDescription, "April 1, 2026", "Reset date description formatted correctly")
+        }
+        
+        test.run("test_DetailedStats_ModelBillingDetails_CalculatesIncludedVsBilled") {
+            // When all requests are included (netQuantity = 0), all should be "included"
+            let usage = createTestUsageWithBilling(models: [
+                (model: "claude-opus", gross: 96.0, net: 0.0, price: 0.04),
+                (model: "gpt-5.4", gross: 64.0, net: 0.0, price: 0.04)
+            ])
+            let details = usage.modelBillingDetails()
+            test.assertEqual(details.count, 2, "Two models in details")
+            
+            // Claude Opus should be first (higher usage)
+            let opus = details[0]
+            test.assertEqual(opus.model, "claude-opus", "First model is claude-opus")
+            test.assertApproximatelyEqual(opus.totalRequests, 96.0, tolerance: 0.01, "Total requests correct")
+            test.assertApproximatelyEqual(opus.includedRequests, 96.0, tolerance: 0.01, "All requests included when net=0")
+            test.assertApproximatelyEqual(opus.billedRequests, 0.0, tolerance: 0.01, "No billed requests when net=0")
+            test.assertApproximatelyEqual(opus.grossAmount, 3.84, tolerance: 0.01, "Gross amount = 96 * 0.04")
+            test.assertApproximatelyEqual(opus.billedAmount, 0.0, tolerance: 0.01, "Billed amount is 0")
+        }
+        
+        test.run("test_DetailedStats_ModelBillingDetails_HandlesOverage") {
+            // When there's overage, netQuantity > 0 represents billed requests
+            let usage = createTestUsageWithBilling(models: [
+                (model: "claude-opus", gross: 150.0, net: 50.0, price: 0.04)  // 100 included, 50 billed
+            ])
+            let details = usage.modelBillingDetails()
+            test.assertEqual(details.count, 1, "One model in details")
+            
+            let opus = details[0]
+            test.assertApproximatelyEqual(opus.totalRequests, 150.0, tolerance: 0.01, "Total requests correct")
+            test.assertApproximatelyEqual(opus.includedRequests, 100.0, tolerance: 0.01, "100 requests included (gross - net)")
+            test.assertApproximatelyEqual(opus.billedRequests, 50.0, tolerance: 0.01, "50 requests billed (net)")
+            test.assertApproximatelyEqual(opus.grossAmount, 6.0, tolerance: 0.01, "Gross amount = 150 * 0.04")
+            test.assertApproximatelyEqual(opus.billedAmount, 2.0, tolerance: 0.01, "Billed amount = 50 * 0.04")
+        }
+        
+        test.run("test_DetailedStats_ModelBillingDetails_SortsByUsageDescending") {
+            let usage = createTestUsageWithBilling(models: [
+                (model: "low-usage", gross: 10.0, net: 0.0, price: 0.04),
+                (model: "high-usage", gross: 100.0, net: 0.0, price: 0.04),
+                (model: "medium-usage", gross: 50.0, net: 0.0, price: 0.04)
+            ])
+            let details = usage.modelBillingDetails()
+            test.assertEqual(details[0].model, "high-usage", "Highest usage first")
+            test.assertEqual(details[1].model, "medium-usage", "Medium usage second")
+            test.assertEqual(details[2].model, "low-usage", "Lowest usage third")
+        }
+        
+        test.run("test_DetailedStats_BillingSummary_IncludesDiscountAmount") {
+            let usage = createTestUsageWithBilling(models: [
+                (model: "model", gross: 100.0, net: 0.0, price: 0.04)
+            ])
+            let summary = usage.billingSummary(includedRequests: 300)
+            test.assertApproximatelyEqual(summary.discountAmount, 4.0, tolerance: 0.01, "Discount amount = gross - net = 4.0")
+            test.assertApproximatelyEqual(summary.includedUsed, 100.0, tolerance: 0.01, "Included used = min(used, included)")
+            test.assertApproximatelyEqual(summary.includedPercentage, 33.33, tolerance: 0.1, "Included percentage = 100/300 * 100")
+        }
+        
+        test.run("test_DetailedStats_BillingSummary_IncludedPercentageCapped") {
+            let usage = createTestUsageWithBilling(models: [
+                (model: "model", gross: 400.0, net: 100.0, price: 0.04)
+            ])
+            let summary = usage.billingSummary(includedRequests: 300)
+            test.assertApproximatelyEqual(summary.includedUsed, 300.0, tolerance: 0.01, "Included used capped at budget")
+            test.assertApproximatelyEqual(summary.includedPercentage, 100.0, tolerance: 0.01, "Included percentage capped at 100%")
         }
         
         test.printSummary()
