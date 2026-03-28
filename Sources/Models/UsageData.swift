@@ -1,39 +1,14 @@
 import Foundation
 
-// MARK: - Budget API Models (F018)
+// MARK: - Spending Budget Summary (F018)
 
-/// Response from GitHub budget API
-/// Endpoint: GET /users/{username}/settings/billing/budgets
-/// API version: 2026-03-10
-struct BudgetResponse: Codable {
-    let budgets: [BudgetItem]
-    let hasNextPage: Bool?
-    let totalCount: Int?
-}
-
-/// Individual budget entry from the API
-struct BudgetItem: Codable, Equatable {
-    let id: String?
-    let budgetType: String?           // e.g., "SkuPricing", "ProductPricing"
-    let budgetAmount: Int             // Dollar cap (e.g., 15)
-    let preventFurtherUsage: Bool     // Whether usage stops at cap
-    let budgetScope: String?          // e.g., "user"
-    let budgetEntityName: String?     // e.g., "matlockx"
-    let budgetProductSku: String?     // e.g., "premium_request"
-    let budgetAlerting: BudgetAlerting?
-}
-
-/// Budget alerting configuration
-struct BudgetAlerting: Codable, Equatable {
-    let willAlert: Bool?
-    let alertRecipients: [String]?
-}
-
-/// Computed spending summary combining budget data with usage data
+/// Computed spending summary combining user-configured dollar budget with usage cost data.
+/// The budget amount comes from user settings (BudgetConfig.dollarBudget).
+/// The amount spent is computed from UsageResponse.totalNetCost (sum of netAmount across usage items).
 struct SpendingBudgetSummary: Equatable {
-    let budgetAmount: Double          // Dollar cap
-    let amountSpent: Double           // From usage netCost
-    let preventFurtherUsage: Bool     // Hard cap or soft cap
+    let budgetAmount: Double          // User-configured dollar cap (from Settings)
+    let amountSpent: Double           // From usage totalNetCost
+    let preventFurtherUsage: Bool     // Whether GitHub stops usage at cap
     let pricePerRequest: Double       // Current price per premium request
     
     /// Remaining budget in dollars

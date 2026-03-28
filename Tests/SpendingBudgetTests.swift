@@ -50,125 +50,7 @@ struct SpendingBudgetTests {
         print("F018: Spending Budget Tests")
         print("=========================================")
         
-        // MARK: - BudgetResponse Decoding Tests
-        
-        test.run("test_BudgetResponse_DecodesValidJSON") {
-            let json = """
-            {
-                "budgets": [
-                    {
-                        "id": "budget-123",
-                        "budget_type": "SkuPricing",
-                        "budget_amount": 15,
-                        "prevent_further_usage": true,
-                        "budget_scope": "user",
-                        "budget_entity_name": "testuser",
-                        "budget_product_sku": "premium_request",
-                        "budget_alerting": {
-                            "will_alert": true,
-                            "alert_recipients": ["test@example.com"]
-                        }
-                    }
-                ],
-                "has_next_page": false,
-                "total_count": 1
-            }
-            """
-            let data = json.data(using: .utf8)!
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            do {
-                let response = try decoder.decode(BudgetResponse.self, from: data)
-                test.assertEqual(response.budgets.count, 1, "Should have 1 budget")
-                test.assertEqual(response.hasNextPage, false, "hasNextPage decoded")
-                test.assertEqual(response.totalCount, 1, "totalCount decoded")
-            } catch {
-                test.assertTrue(false, "Should decode: \(error)")
-            }
-        }
-        
-        test.run("test_BudgetItem_DecodesAllFields") {
-            let json = """
-            {
-                "id": "budget-456",
-                "budget_type": "SkuPricing",
-                "budget_amount": 25,
-                "prevent_further_usage": false,
-                "budget_scope": "user",
-                "budget_entity_name": "matlockx",
-                "budget_product_sku": "premium_request",
-                "budget_alerting": {
-                    "will_alert": true,
-                    "alert_recipients": ["user@example.com"]
-                }
-            }
-            """
-            let data = json.data(using: .utf8)!
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            do {
-                let item = try decoder.decode(BudgetItem.self, from: data)
-                test.assertEqual(item.id, "budget-456", "id decoded")
-                test.assertEqual(item.budgetType, "SkuPricing", "budgetType decoded")
-                test.assertEqual(item.budgetAmount, 25, "budgetAmount decoded")
-                test.assertEqual(item.preventFurtherUsage, false, "preventFurtherUsage decoded")
-                test.assertEqual(item.budgetScope, "user", "budgetScope decoded")
-                test.assertEqual(item.budgetEntityName, "matlockx", "budgetEntityName decoded")
-                test.assertEqual(item.budgetProductSku, "premium_request", "budgetProductSku decoded")
-                test.assertNotNil(item.budgetAlerting, "budgetAlerting decoded")
-                test.assertEqual(item.budgetAlerting?.willAlert, true, "willAlert decoded")
-            } catch {
-                test.assertTrue(false, "Should decode: \(error)")
-            }
-        }
-        
-        test.run("test_BudgetItem_HandlesMinimalFields") {
-            // Some fields may be optional in practice
-            let json = """
-            {
-                "budget_amount": 10,
-                "prevent_further_usage": true
-            }
-            """
-            let data = json.data(using: .utf8)!
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            do {
-                let item = try decoder.decode(BudgetItem.self, from: data)
-                test.assertEqual(item.budgetAmount, 10, "budgetAmount decoded")
-                test.assertEqual(item.preventFurtherUsage, true, "preventFurtherUsage decoded")
-                test.assertNil(item.id, "id is nil when not provided")
-                test.assertNil(item.budgetProductSku, "budgetProductSku is nil when not provided")
-            } catch {
-                test.assertTrue(false, "Should decode minimal JSON: \(error)")
-            }
-        }
-        
-        test.run("test_BudgetResponse_EmptyBudgets") {
-            let json = """
-            {
-                "budgets": [],
-                "has_next_page": false,
-                "total_count": 0
-            }
-            """
-            let data = json.data(using: .utf8)!
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            do {
-                let response = try decoder.decode(BudgetResponse.self, from: data)
-                test.assertEqual(response.budgets.count, 0, "Should have 0 budgets")
-                test.assertEqual(response.totalCount, 0, "totalCount is 0")
-            } catch {
-                test.assertTrue(false, "Should decode empty budgets: \(error)")
-            }
-        }
-        
-        // MARK: - SpendingBudgetSummary Tests
+        // MARK: - SpendingBudgetSummary Calculation Tests
         
         test.run("test_SpendingBudgetSummary_RemainingCalculation") {
             let summary = SpendingBudgetSummary(
@@ -282,120 +164,6 @@ struct SpendingBudgetTests {
             test.assertEqual(summary.maxAdditionalRequests, 0, "Max additional is 0 when no remaining budget")
         }
         
-        // MARK: - findPremiumRequestBudget Tests
-        
-        test.run("test_FindPremiumRequestBudget_MatchesPremiumSku") {
-            let budgets = [
-                BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 10, preventFurtherUsage: false,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "actions", budgetAlerting: nil),
-                BudgetItem(id: "2", budgetType: "SkuPricing", budgetAmount: 15, preventFurtherUsage: true,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "premium_request", budgetAlerting: nil),
-                BudgetItem(id: "3", budgetType: "SkuPricing", budgetAmount: 20, preventFurtherUsage: false,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "codespaces", budgetAlerting: nil)
-            ]
-            let response = BudgetResponse(budgets: budgets, hasNextPage: false, totalCount: 3)
-            
-            let result = GitHubAPIService.findPremiumRequestBudget(in: response)
-            test.assertNotNil(result, "Should find premium budget")
-            test.assertEqual(result?.budgetAmount, 15, "Should return the premium_request budget")
-            test.assertEqual(result?.preventFurtherUsage, true, "preventFurtherUsage should be true")
-        }
-        
-        test.run("test_FindPremiumRequestBudget_MatchesPartialPremiumSku") {
-            let budgets = [
-                BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 25, preventFurtherUsage: true,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "All Premium Request SKUs", budgetAlerting: nil)
-            ]
-            let response = BudgetResponse(budgets: budgets, hasNextPage: false, totalCount: 1)
-            
-            let result = GitHubAPIService.findPremiumRequestBudget(in: response)
-            test.assertNotNil(result, "Should match partial 'premium' in SKU")
-            test.assertEqual(result?.budgetAmount, 25, "Should return the matching budget")
-        }
-        
-        test.run("test_FindPremiumRequestBudget_FallsBackToSingleBudget") {
-            let budgets = [
-                BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 30, preventFurtherUsage: false,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "unknown_sku", budgetAlerting: nil)
-            ]
-            let response = BudgetResponse(budgets: budgets, hasNextPage: false, totalCount: 1)
-            
-            let result = GitHubAPIService.findPremiumRequestBudget(in: response)
-            test.assertNotNil(result, "Should fall back to single budget")
-            test.assertEqual(result?.budgetAmount, 30, "Should return the only budget")
-        }
-        
-        test.run("test_FindPremiumRequestBudget_ReturnsNilForMultipleNonMatching") {
-            let budgets = [
-                BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 10, preventFurtherUsage: false,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "actions", budgetAlerting: nil),
-                BudgetItem(id: "2", budgetType: "SkuPricing", budgetAmount: 20, preventFurtherUsage: false,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "codespaces", budgetAlerting: nil)
-            ]
-            let response = BudgetResponse(budgets: budgets, hasNextPage: false, totalCount: 2)
-            
-            let result = GitHubAPIService.findPremiumRequestBudget(in: response)
-            test.assertNil(result, "Should return nil when multiple budgets exist but none match premium")
-        }
-        
-        test.run("test_FindPremiumRequestBudget_ReturnsNilForEmpty") {
-            let response = BudgetResponse(budgets: [], hasNextPage: false, totalCount: 0)
-            
-            let result = GitHubAPIService.findPremiumRequestBudget(in: response)
-            test.assertNil(result, "Should return nil for empty budgets")
-        }
-        
-        test.run("test_FindPremiumRequestBudget_CaseInsensitive") {
-            let budgets = [
-                BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 15, preventFurtherUsage: true,
-                          budgetScope: nil, budgetEntityName: nil, budgetProductSku: "PREMIUM_REQUEST", budgetAlerting: nil)
-            ]
-            let response = BudgetResponse(budgets: budgets, hasNextPage: false, totalCount: 1)
-            
-            let result = GitHubAPIService.findPremiumRequestBudget(in: response)
-            test.assertNotNil(result, "Should match case-insensitively")
-        }
-        
-        // MARK: - BudgetAlerting Tests
-        
-        test.run("test_BudgetAlerting_Decodes") {
-            let json = """
-            {
-                "will_alert": true,
-                "alert_recipients": ["user1@example.com", "user2@example.com"]
-            }
-            """
-            let data = json.data(using: .utf8)!
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            do {
-                let alerting = try decoder.decode(BudgetAlerting.self, from: data)
-                test.assertEqual(alerting.willAlert, true, "willAlert decoded")
-                test.assertEqual(alerting.alertRecipients?.count, 2, "alertRecipients decoded")
-            } catch {
-                test.assertTrue(false, "Should decode: \(error)")
-            }
-        }
-        
-        // MARK: - Integration with Usage Data
-        
-        test.run("test_SpendingBudgetSummary_WithRealUsageData") {
-            // Simulate the scenario from the user's screenshot:
-            // Budget: $15.00, Spent: $0.19
-            let summary = SpendingBudgetSummary(
-                budgetAmount: 15.0,
-                amountSpent: 0.19,
-                preventFurtherUsage: true,
-                pricePerRequest: 0.04
-            )
-            
-            test.assertApproximatelyEqual(summary.remaining, 14.81, tolerance: 0.001, "Remaining = $14.81")
-            test.assertApproximatelyEqual(summary.percentUsed, 1.267, tolerance: 0.01, "~1.27% used")
-            test.assertFalse(summary.isCapReached, "Cap not reached")
-            test.assertEqual(summary.maxAdditionalRequests, 370, "370 more requests possible at $0.04")
-        }
-        
         test.run("test_SpendingBudgetSummary_Equality") {
             let summary1 = SpendingBudgetSummary(
                 budgetAmount: 15.0,
@@ -420,16 +188,439 @@ struct SpendingBudgetTests {
             test.assertFalse(summary1 == summary3, "Different summaries are not equal")
         }
         
-        test.run("test_BudgetItem_Equality") {
-            let item1 = BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 15, preventFurtherUsage: true,
-                                   budgetScope: "user", budgetEntityName: "test", budgetProductSku: "premium_request", budgetAlerting: nil)
-            let item2 = BudgetItem(id: "1", budgetType: "SkuPricing", budgetAmount: 15, preventFurtherUsage: true,
-                                   budgetScope: "user", budgetEntityName: "test", budgetProductSku: "premium_request", budgetAlerting: nil)
-            let item3 = BudgetItem(id: "2", budgetType: "SkuPricing", budgetAmount: 20, preventFurtherUsage: false,
-                                   budgetScope: "user", budgetEntityName: "test", budgetProductSku: "actions", budgetAlerting: nil)
+        test.run("test_SpendingBudgetSummary_WithRealUsageData") {
+            // Simulate the scenario from the user's screenshot:
+            // Budget: $15.00, Spent: $0.19
+            let summary = SpendingBudgetSummary(
+                budgetAmount: 15.0,
+                amountSpent: 0.19,
+                preventFurtherUsage: true,
+                pricePerRequest: 0.04
+            )
             
-            test.assertTrue(item1 == item2, "Identical items are equal")
-            test.assertFalse(item1 == item3, "Different items are not equal")
+            test.assertApproximatelyEqual(summary.remaining, 14.81, tolerance: 0.001, "Remaining = $14.81")
+            test.assertApproximatelyEqual(summary.percentUsed, 1.267, tolerance: 0.01, "~1.27% used")
+            test.assertFalse(summary.isCapReached, "Cap not reached")
+            test.assertEqual(summary.maxAdditionalRequests, 370, "370 more requests possible at $0.04")
+        }
+        
+        test.run("test_SpendingBudgetSummary_SoftCap") {
+            let summary = SpendingBudgetSummary(
+                budgetAmount: 15.0,
+                amountSpent: 20.0,  // Over budget but soft cap
+                preventFurtherUsage: false,
+                pricePerRequest: 0.04
+            )
+            test.assertTrue(summary.isCapReached, "Cap reached even with soft cap")
+            test.assertFalse(summary.preventFurtherUsage, "Soft cap does not prevent usage")
+            test.assertApproximatelyEqual(summary.remaining, 0.0, tolerance: 0.001, "Remaining capped at 0")
+            test.assertApproximatelyEqual(summary.percentUsed, 133.33, tolerance: 0.01, "Can exceed 100%")
+        }
+        
+        // MARK: - BudgetConfig Dollar Budget Tests
+        
+        test.run("test_BudgetConfig_DefaultDollarBudget") {
+            let config = BudgetConfig.default
+            test.assertApproximatelyEqual(config.dollarBudget, 0.0, tolerance: 0.001, "Default dollar budget is 0 (disabled)")
+            test.assertTrue(config.preventFurtherUsage, "Default preventFurtherUsage is true")
+        }
+        
+        test.run("test_BudgetConfig_DollarBudget_EncodesAndDecodes") {
+            let config = BudgetConfig(
+                monthlyBudget: 300,
+                username: "testuser",
+                pollingIntervalMinutes: 5,
+                notificationsEnabled: true,
+                alertAt80Percent: false,
+                alertAt90Percent: true,
+                customAlerts: [],
+                notifyEveryPercent: true,
+                launchAtLogin: false,
+                dollarBudget: 15.0,
+                preventFurtherUsage: true
+            )
+            
+            do {
+                let data = try JSONEncoder().encode(config)
+                let decoded = try JSONDecoder().decode(BudgetConfig.self, from: data)
+                test.assertApproximatelyEqual(decoded.dollarBudget, 15.0, tolerance: 0.001, "dollarBudget survives encode/decode")
+                test.assertTrue(decoded.preventFurtherUsage, "preventFurtherUsage survives encode/decode")
+            } catch {
+                test.assertTrue(false, "Should encode/decode: \(error)")
+            }
+        }
+        
+        test.run("test_BudgetConfig_DollarBudget_BackwardCompatible") {
+            // JSON without dollarBudget/preventFurtherUsage fields (old config)
+            let json = """
+            {
+                "monthlyBudget": 300,
+                "username": "testuser",
+                "pollingIntervalMinutes": 5,
+                "notificationsEnabled": true,
+                "alertAt80Percent": false,
+                "alertAt90Percent": true,
+                "customAlerts": [],
+                "notifyEveryPercent": true,
+                "launchAtLogin": false
+            }
+            """
+            let data = json.data(using: .utf8)!
+            
+            do {
+                let decoded = try JSONDecoder().decode(BudgetConfig.self, from: data)
+                test.assertApproximatelyEqual(decoded.dollarBudget, 0.0, tolerance: 0.001, "dollarBudget defaults to 0 when missing")
+                test.assertTrue(decoded.preventFurtherUsage, "preventFurtherUsage defaults to true when missing")
+            } catch {
+                test.assertTrue(false, "Should decode old config without dollar fields: \(error)")
+            }
+        }
+        
+        test.run("test_BudgetConfig_DollarBudget_ZeroMeansDisabled") {
+            let config = BudgetConfig(
+                monthlyBudget: 300,
+                username: "test",
+                pollingIntervalMinutes: 5,
+                notificationsEnabled: true,
+                alertAt80Percent: false,
+                alertAt90Percent: true,
+                customAlerts: [],
+                notifyEveryPercent: true,
+                launchAtLogin: false,
+                dollarBudget: 0,
+                preventFurtherUsage: true
+            )
+            test.assertApproximatelyEqual(config.dollarBudget, 0.0, tolerance: 0.001, "Dollar budget is 0")
+            // When dollarBudget is 0, the spending budget card should not show
+        }
+        
+        test.run("test_BudgetConfig_DollarBudget_SoftCap") {
+            let config = BudgetConfig(
+                monthlyBudget: 300,
+                username: "test",
+                pollingIntervalMinutes: 5,
+                notificationsEnabled: true,
+                alertAt80Percent: false,
+                alertAt90Percent: true,
+                customAlerts: [],
+                notifyEveryPercent: true,
+                launchAtLogin: false,
+                dollarBudget: 25.0,
+                preventFurtherUsage: false
+            )
+            test.assertApproximatelyEqual(config.dollarBudget, 25.0, tolerance: 0.001, "Dollar budget is 25")
+            test.assertFalse(config.preventFurtherUsage, "Soft cap (preventFurtherUsage = false)")
+        }
+        
+        // MARK: - UsageResponse Cost Computation Tests (used by spending budget)
+        
+        test.run("test_UsageResponse_TotalNetCost_ComputesFromItems") {
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Sonnet 4",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 100, grossAmount: 4.0,
+                    discountQuantity: 100, discountAmount: 4.0,
+                    netQuantity: 0, netAmount: 0.0
+                ),
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Opus 4.6",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 10, grossAmount: 0.40,
+                    discountQuantity: 0, discountAmount: 0.0,
+                    netQuantity: 10, netAmount: 0.40
+                )
+            ]
+            let response = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            test.assertApproximatelyEqual(response.totalNetCost, 0.40, tolerance: 0.001, "Net cost = 0 + 0.40 = $0.40")
+            test.assertApproximatelyEqual(response.totalGrossCost, 4.40, tolerance: 0.001, "Gross cost = 4.0 + 0.40 = $4.40")
+        }
+        
+        test.run("test_UsageResponse_TotalNetCost_AllIncluded") {
+            // When all usage is covered by included requests, netAmount is 0
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Sonnet 4",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 200, grossAmount: 8.0,
+                    discountQuantity: 200, discountAmount: 8.0,
+                    netQuantity: 0, netAmount: 0.0
+                )
+            ]
+            let response = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            test.assertApproximatelyEqual(response.totalNetCost, 0.0, tolerance: 0.001, "Net cost is $0 when all included")
+        }
+        
+        test.run("test_UsageResponse_TotalNetCost_MultipleModels") {
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Sonnet 4",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 50, grossAmount: 2.0,
+                    discountQuantity: 50, discountAmount: 2.0,
+                    netQuantity: 0, netAmount: 0.0
+                ),
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Opus 4.6",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 30, grossAmount: 1.20,
+                    discountQuantity: 20, discountAmount: 0.80,
+                    netQuantity: 10, netAmount: 0.40
+                ),
+                UsageItem(
+                    product: "copilot_completions", sku: "premium", model: "GPT-5.1",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 20, grossAmount: 0.80,
+                    discountQuantity: 0, discountAmount: 0.0,
+                    netQuantity: 20, netAmount: 0.80
+                )
+            ]
+            let response = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            test.assertApproximatelyEqual(response.totalNetCost, 1.20, tolerance: 0.001, "Net cost = 0 + 0.40 + 0.80 = $1.20")
+        }
+        
+        test.run("test_UsageResponse_PricePerRequest") {
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Sonnet 4",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 100, grossAmount: 4.0,
+                    discountQuantity: 100, discountAmount: 4.0,
+                    netQuantity: 0, netAmount: 0.0
+                )
+            ]
+            let response = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            test.assertApproximatelyEqual(response.pricePerRequest, 0.04, tolerance: 0.001, "Price per request from first item")
+        }
+        
+        test.run("test_UsageResponse_PricePerRequest_DefaultsTo004") {
+            let response = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: []
+            )
+            
+            test.assertApproximatelyEqual(response.pricePerRequest, 0.04, tolerance: 0.001, "Price defaults to $0.04 when no items")
+        }
+        
+        // MARK: - Integration: SpendingBudgetSummary from Usage + Config
+        
+        test.run("test_Integration_SpendingSummaryFromUsageAndConfig") {
+            // Simulate what UsageTracker.updateSpendingBudget does
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Opus 4.6",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 33, grossAmount: 1.32,
+                    discountQuantity: 28, discountAmount: 1.12,
+                    netQuantity: 5, netAmount: 0.20
+                )
+            ]
+            let usage = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "matlockx", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            let dollarBudget = 15.0
+            let preventFurtherUsage = true
+            
+            let summary = SpendingBudgetSummary(
+                budgetAmount: dollarBudget,
+                amountSpent: usage.totalNetCost,
+                preventFurtherUsage: preventFurtherUsage,
+                pricePerRequest: usage.pricePerRequest
+            )
+            
+            test.assertApproximatelyEqual(summary.budgetAmount, 15.0, tolerance: 0.001, "Budget from config")
+            test.assertApproximatelyEqual(summary.amountSpent, 0.20, tolerance: 0.001, "Spent from usage.totalNetCost")
+            test.assertTrue(summary.preventFurtherUsage, "preventFurtherUsage from config")
+            test.assertApproximatelyEqual(summary.remaining, 14.80, tolerance: 0.001, "Remaining = 15.00 - 0.20")
+            test.assertApproximatelyEqual(summary.percentUsed, 1.333, tolerance: 0.01, "~1.33% used")
+            test.assertEqual(summary.maxAdditionalRequests, 370, "370 more at $0.04")
+        }
+        
+        test.run("test_Integration_NoBudgetWhenDollarBudgetIsZero") {
+            // When config.dollarBudget is 0, no spending budget should be produced
+            let dollarBudget = 0.0
+            
+            // This is what UsageTracker checks
+            let shouldShowBudget = dollarBudget > 0
+            test.assertFalse(shouldShowBudget, "No budget card when dollarBudget is 0")
+        }
+        
+        test.run("test_Integration_BudgetWithHighSpending") {
+            // Simulate heavy usage: many premium requests, high cost
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Opus 4.6",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 500, grossAmount: 20.0,
+                    discountQuantity: 300, discountAmount: 12.0,
+                    netQuantity: 200, netAmount: 8.0
+                ),
+                UsageItem(
+                    product: "copilot_agent", sku: "premium", model: "Claude Sonnet 4",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 300, grossAmount: 12.0,
+                    discountQuantity: 0, discountAmount: 0.0,
+                    netQuantity: 300, netAmount: 12.0
+                )
+            ]
+            let usage = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            let summary = SpendingBudgetSummary(
+                budgetAmount: 15.0,
+                amountSpent: usage.totalNetCost,
+                preventFurtherUsage: true,
+                pricePerRequest: usage.pricePerRequest
+            )
+            
+            test.assertApproximatelyEqual(summary.amountSpent, 20.0, tolerance: 0.001, "Spent = 8.0 + 12.0 = $20.00")
+            test.assertTrue(summary.isCapReached, "Cap reached at $20 > $15")
+            test.assertApproximatelyEqual(summary.remaining, 0.0, tolerance: 0.001, "No remaining budget")
+            test.assertEqual(summary.maxAdditionalRequests, 0, "No more requests possible")
+            test.assertApproximatelyEqual(summary.percentUsed, 133.33, tolerance: 0.01, "133% over budget")
+        }
+        
+        test.run("test_Integration_BudgetWithZeroSpending") {
+            let items = [
+                UsageItem(
+                    product: "copilot_chat", sku: "premium", model: "Claude Sonnet 4",
+                    unitType: "request", pricePerUnit: 0.04,
+                    grossQuantity: 50, grossAmount: 2.0,
+                    discountQuantity: 50, discountAmount: 2.0,
+                    netQuantity: 0, netAmount: 0.0
+                )
+            ]
+            let usage = UsageResponse(
+                timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                user: "testuser", product: nil, model: nil,
+                usageItems: items
+            )
+            
+            let summary = SpendingBudgetSummary(
+                budgetAmount: 15.0,
+                amountSpent: usage.totalNetCost,
+                preventFurtherUsage: true,
+                pricePerRequest: usage.pricePerRequest
+            )
+            
+            test.assertApproximatelyEqual(summary.amountSpent, 0.0, tolerance: 0.001, "No spending when all included")
+            test.assertApproximatelyEqual(summary.remaining, 15.0, tolerance: 0.001, "Full budget remaining")
+            test.assertEqual(summary.maxAdditionalRequests, 375, "375 requests at $0.04 with $15 budget")
+            test.assertFalse(summary.isCapReached, "Cap not reached")
+        }
+        
+        // MARK: - BudgetConfig Encoding Roundtrip Tests
+        
+        test.run("test_BudgetConfig_FullRoundtrip") {
+            let config = BudgetConfig(
+                monthlyBudget: 500,
+                username: "matlockx",
+                pollingIntervalMinutes: 10,
+                notificationsEnabled: false,
+                alertAt80Percent: true,
+                alertAt90Percent: false,
+                customAlerts: [],
+                notifyEveryPercent: false,
+                launchAtLogin: true,
+                dollarBudget: 42.50,
+                preventFurtherUsage: false
+            )
+            
+            do {
+                let data = try JSONEncoder().encode(config)
+                let decoded = try JSONDecoder().decode(BudgetConfig.self, from: data)
+                test.assertEqual(decoded.monthlyBudget, 500, "monthlyBudget roundtrip")
+                test.assertEqual(decoded.username, "matlockx", "username roundtrip")
+                test.assertEqual(decoded.pollingIntervalMinutes, 10, "pollingIntervalMinutes roundtrip")
+                test.assertFalse(decoded.notificationsEnabled, "notificationsEnabled roundtrip")
+                test.assertTrue(decoded.alertAt80Percent, "alertAt80Percent roundtrip")
+                test.assertFalse(decoded.alertAt90Percent, "alertAt90Percent roundtrip")
+                test.assertFalse(decoded.notifyEveryPercent, "notifyEveryPercent roundtrip")
+                test.assertTrue(decoded.launchAtLogin, "launchAtLogin roundtrip")
+                test.assertApproximatelyEqual(decoded.dollarBudget, 42.50, tolerance: 0.001, "dollarBudget roundtrip")
+                test.assertFalse(decoded.preventFurtherUsage, "preventFurtherUsage roundtrip")
+            } catch {
+                test.assertTrue(false, "Should encode/decode: \(error)")
+            }
+        }
+        
+        test.run("test_BudgetConfig_LegacyJsonWithoutDollarFields") {
+            // Simulates loading config from a version before F018
+            let json = """
+            {
+                "monthlyBudget": 300,
+                "username": "testuser",
+                "pollingIntervalMinutes": 5,
+                "notificationsEnabled": true,
+                "alertAt80Percent": false,
+                "alertAt90Percent": true,
+                "customAlerts": [],
+                "notifyEveryPercent": true,
+                "launchAtLogin": false
+            }
+            """
+            let data = json.data(using: .utf8)!
+            
+            do {
+                let decoded = try JSONDecoder().decode(BudgetConfig.self, from: data)
+                test.assertEqual(decoded.monthlyBudget, 300, "monthlyBudget decoded from legacy")
+                test.assertApproximatelyEqual(decoded.dollarBudget, 0.0, tolerance: 0.001, "dollarBudget defaults to 0")
+                test.assertTrue(decoded.preventFurtherUsage, "preventFurtherUsage defaults to true")
+            } catch {
+                test.assertTrue(false, "Should decode legacy config: \(error)")
+            }
+        }
+        
+        test.run("test_BudgetConfig_DollarBudget_SmallValues") {
+            // Test with very small budget amounts
+            let summary = SpendingBudgetSummary(
+                budgetAmount: 1.0,
+                amountSpent: 0.50,
+                preventFurtherUsage: true,
+                pricePerRequest: 0.04
+            )
+            test.assertApproximatelyEqual(summary.remaining, 0.50, tolerance: 0.001, "Remaining = $0.50")
+            test.assertEqual(summary.maxAdditionalRequests, 12, "12 more requests at $0.04 with $0.50 remaining")
+        }
+        
+        test.run("test_BudgetConfig_DollarBudget_LargeValues") {
+            // Test with large budget
+            let summary = SpendingBudgetSummary(
+                budgetAmount: 1000.0,
+                amountSpent: 50.0,
+                preventFurtherUsage: false,
+                pricePerRequest: 0.04
+            )
+            test.assertApproximatelyEqual(summary.remaining, 950.0, tolerance: 0.001, "Remaining = $950.00")
+            test.assertEqual(summary.maxAdditionalRequests, 23750, "23750 more requests at $0.04")
+            test.assertApproximatelyEqual(summary.percentUsed, 5.0, tolerance: 0.001, "5% used")
         }
         
         test.printSummary()

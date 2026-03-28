@@ -16,6 +16,8 @@ struct SettingsView: View {
     @State private var customAlerts: [CustomAlertThreshold]
     @State private var notifyEveryPercent: Bool
     @State private var launchAtLogin: Bool
+    @State private var dollarBudget: String
+    @State private var preventFurtherUsage: Bool
     @State private var showingTokenSaved = false
     @State private var showingValidationAlert = false
     @State private var validationAlertTitle = SettingsAlertConfiguration.failureTitle
@@ -36,6 +38,8 @@ struct SettingsView: View {
         _customAlerts = State(initialValue: tracker.config.normalizedCustomAlerts)
         _notifyEveryPercent = State(initialValue: tracker.config.notifyEveryPercent)
         _launchAtLogin = State(initialValue: tracker.config.launchAtLogin)
+        _dollarBudget = State(initialValue: tracker.config.dollarBudget > 0 ? String(format: "%.2f", tracker.config.dollarBudget) : "")
+        _preventFurtherUsage = State(initialValue: tracker.config.preventFurtherUsage)
         
         // Load saved token preview
         if let savedToken = try? KeychainService().loadToken() {
@@ -188,6 +192,24 @@ struct SettingsView: View {
                                     }
                                 }
                             }
+
+                            GridRow {
+                                gridLabel("Dollar Budget")
+                                trailingControlRow {
+                                    HStack(spacing: SettingsViewConfiguration.formFieldSpacing) {
+                                    Text("$")
+                                        .foregroundColor(.secondary)
+                                    TextField("0.00", text: $dollarBudget)
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: SettingsViewConfiguration.valueFieldWidth)
+                                        .multilineTextAlignment(.trailing)
+                                    Text("/ month")
+                                        .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+
+                            toggleGridRow("Stop usage at cap", isOn: $preventFurtherUsage)
                         }
                     }
 
@@ -540,6 +562,8 @@ struct SettingsView: View {
         customAlerts = tracker.config.normalizedCustomAlerts
         tracker.config.notifyEveryPercent = notifyEveryPercent
         tracker.config.launchAtLogin = launchAtLogin
+        tracker.config.dollarBudget = Double(dollarBudget) ?? 0
+        tracker.config.preventFurtherUsage = preventFurtherUsage
         updateLaunchAtLoginRegistration(enabled: launchAtLogin)
         
         tracker.saveConfig()

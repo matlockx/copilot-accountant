@@ -11,6 +11,8 @@ struct BudgetConfig: Codable {
     var customAlerts: [CustomAlertThreshold]
     var notifyEveryPercent: Bool
     var launchAtLogin: Bool
+    var dollarBudget: Double              // Dollar spending cap (0 = disabled)
+    var preventFurtherUsage: Bool         // Whether GitHub stops usage at dollar cap
     
     static let `default` = BudgetConfig(
         monthlyBudget: 300,
@@ -21,7 +23,9 @@ struct BudgetConfig: Codable {
         alertAt90Percent: true,
         customAlerts: [],
         notifyEveryPercent: true,
-        launchAtLogin: false
+        launchAtLogin: false,
+        dollarBudget: 0,
+        preventFurtherUsage: true
     )
 
     enum CodingKeys: String, CodingKey {
@@ -36,6 +40,8 @@ struct BudgetConfig: Codable {
         case launchAtLogin
         case customAlertEnabled
         case customAlertPercent
+        case dollarBudget
+        case preventFurtherUsage
     }
 
     init(
@@ -47,7 +53,9 @@ struct BudgetConfig: Codable {
         alertAt90Percent: Bool,
         customAlerts: [CustomAlertThreshold],
         notifyEveryPercent: Bool,
-        launchAtLogin: Bool
+        launchAtLogin: Bool,
+        dollarBudget: Double = 0,
+        preventFurtherUsage: Bool = true
     ) {
         self.monthlyBudget = monthlyBudget
         self.username = username
@@ -58,6 +66,8 @@ struct BudgetConfig: Codable {
         self.customAlerts = customAlerts
         self.notifyEveryPercent = notifyEveryPercent
         self.launchAtLogin = launchAtLogin
+        self.dollarBudget = dollarBudget
+        self.preventFurtherUsage = preventFurtherUsage
     }
 
     init(from decoder: Decoder) throws {
@@ -70,6 +80,8 @@ struct BudgetConfig: Codable {
         alertAt90Percent = try container.decodeIfPresent(Bool.self, forKey: .alertAt90Percent) ?? true
         notifyEveryPercent = try container.decodeIfPresent(Bool.self, forKey: .notifyEveryPercent) ?? true
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        dollarBudget = try container.decodeIfPresent(Double.self, forKey: .dollarBudget) ?? 0
+        preventFurtherUsage = try container.decodeIfPresent(Bool.self, forKey: .preventFurtherUsage) ?? true
 
         if let decodedCustomAlerts = try container.decodeIfPresent([CustomAlertThreshold].self, forKey: .customAlerts) {
             customAlerts = decodedCustomAlerts
@@ -91,6 +103,8 @@ struct BudgetConfig: Codable {
         try container.encode(normalizedCustomAlerts, forKey: .customAlerts)
         try container.encode(notifyEveryPercent, forKey: .notifyEveryPercent)
         try container.encode(launchAtLogin, forKey: .launchAtLogin)
+        try container.encode(dollarBudget, forKey: .dollarBudget)
+        try container.encode(preventFurtherUsage, forKey: .preventFurtherUsage)
     }
     
     /// Returns the alert threshold value for 80%

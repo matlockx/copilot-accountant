@@ -32,8 +32,6 @@ struct DetailedStatsView: View {
                 // Spending budget card (F018)
                 if let budget = tracker.spendingBudget {
                     spendingBudgetCard(budget: budget)
-                } else if let error = tracker.spendingBudgetError {
-                    spendingBudgetErrorCard(error: error)
                 }
                 
                 Divider()
@@ -89,11 +87,6 @@ struct DetailedStatsView: View {
             maxHeight: .infinity,
             alignment: .top
         )
-        .onAppear {
-            Task {
-                await tracker.fetchSpendingBudgets()
-            }
-        }
     }
     
     // MARK: - Empty State
@@ -280,30 +273,6 @@ struct DetailedStatsView: View {
         } else {
             return .green
         }
-    }
-    
-    private func spendingBudgetErrorCard(error: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.orange)
-                .font(.title3)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Spending Budget")
-                    .font(.headline)
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
-            }
-            
-            Spacer()
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - Usage Breakdown Section

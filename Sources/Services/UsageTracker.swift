@@ -23,7 +23,6 @@ class UsageTracker: ObservableObject {
     @Published var currentUsage: UsageResponse?
     @Published var dailyUsage: [DailyUsage] = []
     @Published var spendingBudget: SpendingBudgetSummary?
-    @Published var spendingBudgetError: String?
     @Published var isLoading = false
     @Published var lastError: String?
     @Published var lastUpdateTime: Date?
@@ -44,7 +43,6 @@ class UsageTracker: ObservableObject {
     private let configKey = "budgetConfig"
     private let dailyUsageKey = "cachedDailyUsage"
     private let lastUsageKey = "cachedUsage"
-    private let spendingBudgetKey = "cachedSpendingBudget"
     private let alert80Key = "hasAlerted80"
     private let alert90Key = "hasAlerted90"
     private let alertCustomPercentagesKey = "alertedCustomPercentages"
@@ -141,6 +139,9 @@ class UsageTracker: ObservableObject {
                 userDefaults.set(encoded, forKey: lastUsageKey)
             }
             
+            // Compute spending budget from usage data + config
+            updateSpendingBudget(from: usage)
+            
             // Check for alerts
             checkAndSendAlerts(usage: usage, reason: reason)
             
@@ -185,56 +186,24 @@ class UsageTracker: ObservableObject {
         }
     }
     
-    /// Fetch spending budgets from GitHub API
-    /// Called on-demand from DetailedStatsView, not during polling
-    func fetchSpendingBudgets() async {
-        guard !config.username.isEmpty,
-              let token = try? keychainService.loadToken() else {
+    /// Compute spending budget summary from usage data and user config.
+    /// Called after each usage fetch and when loading cached data.
+    /// Only produces a summary when the user has configured a dollar budget > 0.
+    private func updateSpendingBudget(from usage: UsageResponse) {
+        guard config.dollarBudget > 0 else {
+            spendingBudget = nil
             return
         }
         
-        guard let usage = currentUsage else {
-            spendingBudgetError = "No usage data available yet"
-            return
-        }
+        let summary = SpendingBudgetSummary(
+            budgetAmount: config.dollarBudget,
+            amountSpent: usage.totalNetCost,
+            preventFurtherUsage: config.preventFurtherUsage,
+            pricePerRequest: usage.pricePerRequest
+        )
         
-        spendingBudgetError = nil
-        
-        do {
-            guard let budgetResponse = try await apiService.fetchBudgets(username: config.username, token: token) else {
-                log.info("No budget data available for this account")
-                spendingBudget = nil
-                spendingBudgetError = "Budget API returned 404 — endpoint may not be available for personal accounts"
-                userDefaults.removeObject(forKey: spendingBudgetKey)
-                return
-            }
-            
-            guard let premiumBudget = GitHubAPIService.findPremiumRequestBudget(in: budgetResponse) else {
-                log.info("No premium request budget found among \(budgetResponse.budgets.count) budget(s)")
-                spendingBudget = nil
-                spendingBudgetError = "No premium request budget found (\(budgetResponse.budgets.count) budget(s) returned)"
-                userDefaults.removeObject(forKey: spendingBudgetKey)
-                return
-            }
-            
-            let summary = SpendingBudgetSummary(
-                budgetAmount: Double(premiumBudget.budgetAmount),
-                amountSpent: usage.totalNetCost,
-                preventFurtherUsage: premiumBudget.preventFurtherUsage,
-                pricePerRequest: usage.pricePerRequest
-            )
-            
-            spendingBudget = summary
-            log.info("Spending budget: $\(premiumBudget.budgetAmount), spent: $\(String(format: "%.2f", usage.totalNetCost)), prevent: \(premiumBudget.preventFurtherUsage)")
-            
-            // Cache the budget response
-            if let encoded = try? JSONEncoder().encode(premiumBudget) {
-                userDefaults.set(encoded, forKey: spendingBudgetKey)
-            }
-        } catch {
-            log.error("Failed to fetch spending budgets: \(error.localizedDescription)")
-            spendingBudgetError = error.localizedDescription
-        }
+        spendingBudget = summary
+        log.info("Spending budget: $\(String(format: "%.2f", config.dollarBudget)), spent: $\(String(format: "%.2f", usage.totalNetCost)), prevent: \(config.preventFurtherUsage)")
     }
     
     /// Check thresholds and send alerts
@@ -341,16 +310,8 @@ class UsageTracker: ObservableObject {
             currentUsage = decoded
             Self.postUsageUpdatedNotification()
             
-            // Load cached budget and reconstruct spending summary
-            if let budgetData = userDefaults.data(forKey: spendingBudgetKey),
-               let budgetItem = try? JSONDecoder().decode(BudgetItem.self, from: budgetData) {
-                spendingBudget = SpendingBudgetSummary(
-                    budgetAmount: Double(budgetItem.budgetAmount),
-                    amountSpent: decoded.totalNetCost,
-                    preventFurtherUsage: budgetItem.preventFurtherUsage,
-                    pricePerRequest: decoded.pricePerRequest
-                )
-            }
+            // Compute spending budget from cached usage + config
+            updateSpendingBudget(from: decoded)
         }
         
         // Load daily usage
