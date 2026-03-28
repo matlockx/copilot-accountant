@@ -168,6 +168,7 @@ Tests/
 ├── LoggingTests.swift            # F011
 ├── TokenHelpTests.swift          # F012
 ├── DetailedStatsTests.swift      # F013
+├── ModelMultiplierServiceTests.swift  # F016, F017
 └── MenuBarTests.swift            # F001
 ```
 
@@ -246,6 +247,8 @@ Sources/                   # Implementation
 | F011 | Logging | LoggingTests.swift |
 | F012 | Token Help UI | TokenHelpTests.swift |
 | F013 | Detailed Statistics View | DetailedStatsTests.swift |
+| F016 | Dynamic Model Multipliers | ModelMultiplierServiceTests.swift |
+| F017 | All Models Catalog | ModelMultiplierServiceTests.swift |
 
 ---
 

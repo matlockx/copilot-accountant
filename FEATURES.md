@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.6
+## Version: 1.0.7
 ## Last Updated: 2026-03-28
 
 ---
@@ -159,11 +159,12 @@
 - Window is resizable with a sensible minimum size
 - Pressing `Escape` closes the statistics window
 - **Billing summary cards** showing billed premium requests ($X.XX) and included requests consumed (X of Y with percentage)
-- Daily usage bar chart
+- **Interactive chart tooltip**: hovering over daily usage bars shows full date (e.g., "March 14, 2026") and exact request count; hovered bar highlights while others dim
+- Daily usage bar chart with simplified X-axis ticks (every 5 days)
 - Model breakdown pie chart (SectorMark)
 - **Detailed model billing table** with columns: Model, Included requests, Billed requests, Gross amount, Billed amount
 - **Model multiplier column** in the breakdown table showing the Copilot premium request multiplier per model (e.g., Claude Opus 4.5 = 3x, Haiku = 0.33x, GPT-4o = Included)
-- **Premium requests consumed** column showing actual quota deduction (raw requests × multiplier)
+- **Premium requests consumed** column showing actual quota deduction (raw requests x multiplier)
 - `CopilotModelMultipliers` lookup table with direct and fuzzy matching for all known Copilot models
 - **Total premium requests consumed** billing card uses multiplier-adjusted totals for accurate quota tracking
 - Model pricing details reflect GitHub billing unit prices directly and only show meaningful relative factors when prices differ
@@ -171,6 +172,7 @@
 - Price per premium request display ($0.04)
 - Progress bar with color coding
 - Days until reset display
+- **Empty state cards** when no usage data or no daily data is available
 
 ### F014: Application Icon
 **Status:** Implemented  
@@ -185,6 +187,34 @@
 **Tests:** `Tests/InstallerTests.swift`
 
 - `install.sh` verifies the bundle, installs it into `/Applications`, and launches the app automatically at the end of a successful install
+
+### F016: Dynamic Model Multipliers
+**Status:** Implemented  
+**Tests:** `Tests/ModelMultiplierServiceTests.swift`
+
+- `ModelMultiplierService` fetches latest model multipliers from GitHub Copilot docs
+- Parses HTML table from `https://docs.github.com/en/copilot/concepts/billing/copilot-requests`
+- Extracts "Multiplier for paid plans" column, skips "Not applicable" entries
+- Caches parsed multipliers to UserDefaults with timestamp
+- Cache expires after 24 hours (configurable via `ModelMultiplierConfiguration.maxCacheAgeSeconds`)
+- Merges fetched multipliers with hardcoded fallback values (fetched take priority)
+- Validates parse results require minimum 5 models
+- "Update Model Multipliers" button in Detailed Stats with loading spinner, success/error feedback
+- "Last updated" timestamp display (e.g., "5 minutes ago", "Never")
+- Multiplier legend showing Included (green), < 1x (blue), 1x (standard), > 1x (orange/red)
+- Graceful fallback to hardcoded `CopilotModelMultipliers` if no cache exists
+
+### F017: All Models Catalog
+**Status:** Implemented  
+**Tests:** `Tests/ModelMultiplierServiceTests.swift`
+
+- Displays complete catalog of all known Copilot models (not just used ones)
+- Merges models from: user's actual API usage + known multiplier list (hardcoded + cached)
+- Each entry shows: Model name, Multiplier, Usage count, Status badge
+- Status badges: "Used" (green), "Available" (gray), "Free" (blue, for 0-multiplier models)
+- Sort order: Used models first (by usage descending), then free, then available (alphabetical)
+- Unused models displayed at reduced opacity (0.6)
+- Empty state card when no models available
 
 ---
 
@@ -279,27 +309,19 @@ struct ModelUsage: Identifiable {
 
 ## Changelog
 
-### 1.0.0 (2026-03-28)
-- Initial release with all features F001-F013
-- Fixed usage calculation to use grossQuantity
-- Fixed model sorting stability
-- Added first launch popup
-- Added comprehensive logging
-- Added token help UI
-
-### 1.0.1 (2026-03-28)
-- F001: Menu bar now shows one decimal place (28.7% instead of 29%)
-- F001: Popover closes when clicking outside the app
-- F005: Token input no longer triggers macOS password manager
-- F005: Added show/hide toggle for token visibility
-
-### 1.0.2 (2026-03-28)
-- F014: Added a custom app icon to the macOS bundle
-
-### 1.0.3 (2026-03-28)
-- F006: Manual refresh no longer triggers per-percent milestone notifications
-- F008: Restored stable settings padding and checkbox-column alignment
-- F008/F013: Pressing Escape closes open app windows
+### 1.0.7 (2026-03-28)
+- F013: Interactive chart tooltip — hover over daily usage bars to see full date and exact request count
+  - Hovered bar highlights (full opacity), other bars dim
+  - Tooltip follows cursor with fade animation, shows card with date + count
+- F013: Empty state cards for "No usage yet" and "No daily usage data"
+- F016: Dynamic Model Multipliers — fetch latest multipliers from GitHub docs
+  - ModelMultiplierService with HTML parser, caching, and merge logic
+  - "Update Model Multipliers" button with loading/success/error states
+  - Multiplier legend (Included, Discounted, Standard, Premium)
+- F017: All Models Catalog — view all known Copilot models with status badges
+  - Merges API usage data with known model list
+  - Status badges: Used, Available, Free
+  - Sorted by usage, then status, then alphabetical
 
 ### 1.0.6 (2026-03-28)
 - F008: Settings UI redesign — flat, modern appearance inspired by macOS native style

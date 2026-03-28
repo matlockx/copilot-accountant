@@ -80,3 +80,18 @@ struct DetailedStatsWindowConfiguration {
     static let styleMask: NSWindow.StyleMask = [.titled, .closable, .resizable]
     static let escapeKeyClosesWindow = true
 }
+
+struct ChartTooltipConfiguration {
+    static let cornerRadius: CGFloat = 8
+    static let shadowRadius: CGFloat = 4
+    static let padding: CGFloat = 10
+    static let highlightOpacity: Double = 1.0
+    static let dimmedOpacity: Double = 0.4
+    static let dateFormat = "MMMM d, yyyy"
+}
+
+struct DetailedStatsEmptyState {
+    static let noUsage = "No usage data yet this month"
+    static let noDailyData = "No daily usage data available"
+    static let noModels = "No model data available"
+}

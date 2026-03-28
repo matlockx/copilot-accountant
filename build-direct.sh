@@ -16,7 +16,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Direct Swift Compiler Build          ║${NC}"
+echo -e "${BLUE}║  Direct Swift Compiler Build           ║${NC}"
 echo -e "${BLUE}║  (Bypasses SPM Sandbox)                ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
 echo ""
@@ -54,6 +54,7 @@ SWIFT_FILES=(
     Sources/Services/NotificationService.swift
     Sources/Services/GitHubAPIService.swift
     Sources/Services/UsageTracker.swift
+    Sources/Services/ModelMultiplierService.swift
     Sources/Views/MenuBarView.swift
     Sources/Views/SettingsView.swift
     Sources/Views/DetailedStatsView.swift
