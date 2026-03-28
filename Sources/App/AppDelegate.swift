@@ -191,9 +191,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func openSettings() {
-        // Activate app first for LSUIElement apps to ensure window can receive input
-        NSApp.activate(ignoringOtherApps: true)
-        
         if settingsWindow == nil {
             let settingsView = SettingsView(tracker: tracker!)
             let hostingController = NSHostingController(rootView: settingsView)
@@ -214,13 +211,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         settingsWindow?.makeKeyAndOrderFront(nil)
+        // For LSUIElement apps, activate *after* making window visible
+        // to ensure the window can receive keyboard and mouse input
+        NSApp.activate(ignoringOtherApps: true)
     }
     
     private func openDetailedStats() {
         if #available(macOS 14.0, *) {
-            // Activate app first for LSUIElement apps to ensure window can receive input
-            NSApp.activate(ignoringOtherApps: true)
-            
             if detailedStatsWindow == nil {
                 let detailedView = DetailedStatsView(tracker: tracker!)
                 let hostingController = NSHostingController(rootView: detailedView)
@@ -242,6 +239,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             
             detailedStatsWindow?.makeKeyAndOrderFront(nil)
+            // For LSUIElement apps, activate *after* making window visible
+            NSApp.activate(ignoringOtherApps: true)
         } else {
             // Fallback for macOS < 14.0
             let alert = NSAlert()

@@ -2,8 +2,11 @@ import Foundation
 
 /// Configuration for the model multiplier update feature
 struct ModelMultiplierConfiguration {
-    /// URL to fetch Copilot model multipliers from
-    static let copilotMultipliersURL = "https://docs.github.com/en/copilot/concepts/billing/copilot-requests"
+    /// Default URL to fetch Copilot model multipliers from
+    static let defaultMultipliersURL = "https://docs.github.com/en/copilot/concepts/billing/copilot-requests"
+    
+    /// UserDefaults key for the user-configured multiplier URL
+    static let urlKey = "modelMultipliersURL"
     
     /// UserDefaults key for cached multipliers
     static let cacheKey = "cachedModelMultipliers"
@@ -40,6 +43,17 @@ class ModelMultiplierService: ObservableObject {
     
     private let log = LogService.shared
     private let userDefaults = UserDefaults.standard
+    
+    /// The URL to fetch multipliers from (user-configurable, persisted)
+    var multipliersURL: String {
+        get {
+            let stored = userDefaults.string(forKey: ModelMultiplierConfiguration.urlKey)
+            return (stored?.isEmpty ?? true) ? ModelMultiplierConfiguration.defaultMultipliersURL : stored!
+        }
+        set {
+            userDefaults.set(newValue, forKey: ModelMultiplierConfiguration.urlKey)
+        }
+    }
     
     /// Last update timestamp (nil if never updated)
     var lastUpdateTime: Date? {
@@ -99,7 +113,7 @@ class ModelMultiplierService: ObservableObject {
     /// Fetch latest multipliers from GitHub docs
     /// Returns the parsed multipliers dictionary, or throws on failure
     func fetchMultipliers() async throws -> [String: Double] {
-        let url = ModelMultiplierConfiguration.copilotMultipliersURL
+        let url = multipliersURL
         log.info("Fetching model multipliers from: \(url)")
         
         guard let requestURL = URL(string: url) else {
@@ -146,14 +160,174 @@ class ModelMultiplierService: ObservableObject {
     }
     
     /// Parse model multipliers from the GitHub docs HTML
-    /// Looks for the table with "Model" and "Multiplier for paid plans" headers
+    /// Handles HTML tables with <table>, <tr>, <th>, <td> elements
+    /// Also supports markdown pipe tables as fallback
     func parseMultipliers(html: String) -> [String: Double] {
+        // Try HTML table parsing first
+        let htmlResult = parseHTMLTable(html: html)
+        if !htmlResult.isEmpty {
+            return htmlResult
+        }
+        
+        // Fallback: try markdown pipe table parsing
+        return parseMarkdownTable(html: html)
+    }
+    
+    /// Parse HTML <table> elements for model multiplier data
+    /// Looks for a table containing "Model" and "Multiplier for" (or "paid plans") in headers
+    private func parseHTMLTable(html: String) -> [String: Double] {
         var result: [String: Double] = [:]
         
-        // Find table rows containing model data
-        // The table has: Model | Multiplier for paid plans | Multiplier for Copilot Free
-        // We parse by finding patterns like: | Model Name | number | ...
+        // Extract all <table>...</table> blocks
+        var searchRange = html.startIndex..<html.endIndex
+        while let tableStart = html.range(of: "<table", options: .caseInsensitive, range: searchRange),
+              let tableEnd = html.range(of: "</table>", options: .caseInsensitive, range: tableStart.lowerBound..<html.endIndex) {
+            
+            let tableHTML = String(html[tableStart.lowerBound..<tableEnd.upperBound])
+            
+            // Check if this table has the right headers (Model + Multiplier)
+            if tableHTML.contains("Model") && (tableHTML.contains("Multiplier for") || tableHTML.contains("paid plans")) {
+                result = parseHTMLTableContent(tableHTML)
+                if !result.isEmpty {
+                    return result
+                }
+            }
+            
+            searchRange = tableEnd.upperBound..<html.endIndex
+        }
         
+        return result
+    }
+    
+    /// Parse the content of an HTML table that contains model multiplier data
+    private func parseHTMLTableContent(_ tableHTML: String) -> [String: Double] {
+        var result: [String: Double] = [:]
+        
+        // Find which column index has the "paid plans" multiplier
+        // Parse header row to determine column positions
+        var paidPlansColumnIndex = 1 // default: second column (0-indexed from data cells)
+        
+        // Extract header cells from <thead> or first <tr>
+        if let theadContent = extractBetween(tableHTML, start: "<thead", end: "</thead>") {
+            let headerCells = extractAllCellContents(theadContent)
+            for (index, cell) in headerCells.enumerated() {
+                if cell.contains("paid plans") || (cell.contains("Multiplier") && !cell.contains("Free")) {
+                    // This is the paid plans column; but we need the index relative to data columns
+                    // The model name is in the first column (index 0)
+                    paidPlansColumnIndex = index
+                }
+            }
+        }
+        
+        // Extract body rows from <tbody> or all <tr> after the header
+        let rowsHTML: String
+        if let tbodyContent = extractBetween(tableHTML, start: "<tbody", end: "</tbody>") {
+            rowsHTML = tbodyContent
+        } else {
+            rowsHTML = tableHTML
+        }
+        
+        // Find all <tr> elements in the body
+        var rowSearch = rowsHTML.startIndex..<rowsHTML.endIndex
+        while let trStart = rowsHTML.range(of: "<tr", options: .caseInsensitive, range: rowSearch),
+              let trEnd = rowsHTML.range(of: "</tr>", options: .caseInsensitive, range: trStart.lowerBound..<rowsHTML.endIndex) {
+            
+            let rowHTML = String(rowsHTML[trStart.lowerBound..<trEnd.upperBound])
+            let cells = extractAllCellContents(rowHTML)
+            
+            // Skip header rows (contain "Model" text or fewer than 2 cells)
+            guard cells.count >= 2 else {
+                rowSearch = trEnd.upperBound..<rowsHTML.endIndex
+                continue
+            }
+            
+            let modelName = cells[0].trimmingCharacters(in: .whitespaces)
+            
+            // Skip actual header rows
+            guard !modelName.isEmpty, modelName != "Model" else {
+                rowSearch = trEnd.upperBound..<rowsHTML.endIndex
+                continue
+            }
+            
+            // Get the multiplier value from the right column
+            let multiplierIndex = min(paidPlansColumnIndex, cells.count - 1)
+            let multiplierText = cells[multiplierIndex]
+            
+            if let value = parseMultiplierValue(multiplierText) {
+                result[modelName] = value
+            }
+            
+            rowSearch = trEnd.upperBound..<rowsHTML.endIndex
+        }
+        
+        return result
+    }
+    
+    /// Extract text content from all <th> and <td> cells in an HTML fragment, stripping HTML tags
+    private func extractAllCellContents(_ html: String) -> [String] {
+        var cells: [String] = []
+        var search = html.startIndex..<html.endIndex
+        
+        while search.lowerBound < html.endIndex {
+            // Find next <th or <td
+            var nextCell: Range<String.Index>? = nil
+            var endTag: String = ""
+            
+            let thRange = html.range(of: "<th", options: .caseInsensitive, range: search)
+            let tdRange = html.range(of: "<td", options: .caseInsensitive, range: search)
+            
+            if let th = thRange, let td = tdRange {
+                if th.lowerBound < td.lowerBound {
+                    nextCell = th; endTag = "</th>"
+                } else {
+                    nextCell = td; endTag = "</td>"
+                }
+            } else if let th = thRange {
+                nextCell = th; endTag = "</th>"
+            } else if let td = tdRange {
+                nextCell = td; endTag = "</td>"
+            }
+            
+            guard let cellStart = nextCell else { break }
+            
+            // Find the > that closes the opening tag
+            guard let openTagEnd = html.range(of: ">", range: cellStart.lowerBound..<html.endIndex) else { break }
+            
+            // Find the closing tag
+            guard let closeTag = html.range(of: endTag, options: .caseInsensitive, range: openTagEnd.upperBound..<html.endIndex) else { break }
+            
+            let content = String(html[openTagEnd.upperBound..<closeTag.lowerBound])
+            cells.append(stripHTMLTags(content))
+            
+            search = closeTag.upperBound..<html.endIndex
+        }
+        
+        return cells
+    }
+    
+    /// Strip HTML tags from a string, returning plain text
+    private func stripHTMLTags(_ html: String) -> String {
+        var result = html
+        // Remove all <...> tags
+        while let tagStart = result.range(of: "<"),
+              let tagEnd = result.range(of: ">", range: tagStart.lowerBound..<result.endIndex) {
+            result.removeSubrange(tagStart.lowerBound..<tagEnd.upperBound)
+        }
+        return result.trimmingCharacters(in: .whitespaces)
+    }
+    
+    /// Extract content between a start tag and end tag in HTML
+    private func extractBetween(_ html: String, start: String, end: String) -> String? {
+        guard let startRange = html.range(of: start, options: .caseInsensitive) else { return nil }
+        // Find the > that closes the start tag
+        guard let openEnd = html.range(of: ">", range: startRange.lowerBound..<html.endIndex) else { return nil }
+        guard let endRange = html.range(of: end, options: .caseInsensitive, range: openEnd.upperBound..<html.endIndex) else { return nil }
+        return String(html[openEnd.upperBound..<endRange.lowerBound])
+    }
+    
+    /// Fallback: Parse markdown pipe tables
+    private func parseMarkdownTable(html: String) -> [String: Double] {
+        var result: [String: Double] = [:]
         let lines = html.components(separatedBy: "\n")
         
         var inMultiplierTable = false
@@ -164,58 +338,34 @@ class ModelMultiplierService: ObservableObject {
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             
-            // Look for table header with "Multiplier for" which identifies the right table
             if trimmed.contains("Model") && trimmed.contains("Multiplier for") && trimmed.contains("|") {
                 inMultiplierTable = true
                 headerFound = true
-                
-                // Parse column indices from header
                 let columns = trimmed.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
                 for (index, col) in columns.enumerated() {
-                    if col == "Model" {
-                        modelColumnIndex = index
-                    } else if col.contains("paid plans") {
-                        multiplierColumnIndex = index
-                    }
+                    if col == "Model" { modelColumnIndex = index }
+                    else if col.contains("paid plans") { multiplierColumnIndex = index }
                 }
                 continue
             }
             
-            // Skip separator rows
-            if inMultiplierTable && trimmed.hasPrefix("|") && trimmed.contains("---") {
-                continue
-            }
+            if inMultiplierTable && trimmed.hasPrefix("|") && trimmed.contains("---") { continue }
             
-            // Parse data rows
             if inMultiplierTable && headerFound && trimmed.hasPrefix("|") && trimmed.hasSuffix("|") {
                 let columns = trimmed.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
-                
                 guard modelColumnIndex >= 0, multiplierColumnIndex >= 0,
-                      modelColumnIndex < columns.count, multiplierColumnIndex < columns.count else {
-                    continue
-                }
-                
+                      modelColumnIndex < columns.count, multiplierColumnIndex < columns.count else { continue }
                 let modelName = columns[modelColumnIndex]
                 let multiplierText = columns[multiplierColumnIndex]
-                
-                // Skip empty rows or header-like rows
-                guard !modelName.isEmpty, modelName != "Model", !modelName.contains("---") else {
-                    continue
-                }
-                
-                // Parse multiplier value
-                if let multiplierValue = parseMultiplierValue(multiplierText) {
-                    result[modelName] = multiplierValue
+                guard !modelName.isEmpty, modelName != "Model", !modelName.contains("---") else { continue }
+                if let value = parseMultiplierValue(multiplierText) {
+                    result[modelName] = value
                 }
             }
             
-            // End of table (empty line or new section)
             if inMultiplierTable && headerFound && !trimmed.hasPrefix("|") && !trimmed.isEmpty
                 && !trimmed.hasPrefix("<") && !trimmed.hasPrefix("#") {
-                // Only break if we've actually parsed some data
-                if !result.isEmpty {
-                    break
-                }
+                if !result.isEmpty { break }
             }
         }
         

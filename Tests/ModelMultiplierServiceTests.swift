@@ -43,11 +43,12 @@ struct ModelMultiplierServiceTests {
         // MARK: - Configuration Tests
 
         test.run("test_Configuration_HasExpectedDefaults") {
-            test.assertTrue(ModelMultiplierConfiguration.copilotMultipliersURL.contains("github.com"), "URL points to GitHub docs")
+            test.assertTrue(ModelMultiplierConfiguration.defaultMultipliersURL.contains("github.com"), "URL points to GitHub docs")
             test.assertEqual(ModelMultiplierConfiguration.minimumExpectedModels, 5, "Minimum expected models is 5")
             test.assertTrue(ModelMultiplierConfiguration.maxCacheAgeSeconds > 0, "Cache age is positive")
             test.assertFalse(ModelMultiplierConfiguration.cacheKey.isEmpty, "Cache key is not empty")
             test.assertFalse(ModelMultiplierConfiguration.cacheTimestampKey.isEmpty, "Timestamp key is not empty")
+            test.assertFalse(ModelMultiplierConfiguration.urlKey.isEmpty, "URL key is not empty")
         }
 
         // MARK: - Parse Multiplier Value Tests
@@ -70,13 +71,90 @@ struct ModelMultiplierServiceTests {
             test.assertNil(service.parseMultiplierValue("  "), "Whitespace returns nil")
         }
 
-        // MARK: - HTML Parsing Tests
+        // MARK: - HTML Table Parsing Tests
 
-        test.run("test_ParseMultipliers_ValidTable") {
+        test.run("test_ParseMultipliers_HTMLTable_ValidTable") {
+            let service = ModelMultiplierService()
+            let html = """
+            <html><body>
+            <table><thead><tr>
+            <th scope="col">Model</th>
+            <th scope="col">Multiplier for <strong>paid plans</strong></th>
+            <th scope="col">Multiplier for <strong>Copilot Free</strong></th>
+            </tr></thead><tbody>
+            <tr><th scope="row">Claude Haiku 4.5</th><td>0.33</td><td>1</td></tr>
+            <tr><th scope="row">Claude Opus 4.5</th><td>3</td><td>Not applicable</td></tr>
+            <tr><th scope="row">Claude Sonnet 4</th><td>1</td><td>Not applicable</td></tr>
+            <tr><th scope="row">GPT-4o</th><td>0</td><td>1</td></tr>
+            <tr><th scope="row">GPT-5 mini</th><td>0</td><td>1</td></tr>
+            <tr><th scope="row">GPT-5.4</th><td>1</td><td>Not applicable</td></tr>
+            <tr><th scope="row">Gemini 2.5 Pro</th><td>1</td><td>Not applicable</td></tr>
+            </tbody></table>
+            </body></html>
+            """
+
+            let result = service.parseMultipliers(html: html)
+            test.assertTrue(result.count >= 7, "Parsed at least 7 models from HTML (got \(result.count))")
+            test.assertApproximatelyEqual(result["Claude Haiku 4.5"] ?? -1, 0.33, tolerance: 0.001, "Haiku = 0.33")
+            test.assertApproximatelyEqual(result["Claude Opus 4.5"] ?? -1, 3.0, tolerance: 0.001, "Opus = 3")
+            test.assertApproximatelyEqual(result["Claude Sonnet 4"] ?? -1, 1.0, tolerance: 0.001, "Sonnet = 1")
+            test.assertApproximatelyEqual(result["GPT-4o"] ?? -1, 0.0, tolerance: 0.001, "GPT-4o = 0 (included)")
+            test.assertApproximatelyEqual(result["GPT-5 mini"] ?? -1, 0.0, tolerance: 0.001, "GPT-5 mini = 0 (included)")
+            test.assertApproximatelyEqual(result["GPT-5.4"] ?? -1, 1.0, tolerance: 0.001, "GPT-5.4 = 1")
+        }
+
+        test.run("test_ParseMultipliers_HTMLTable_SingleLine") {
+            let service = ModelMultiplierService()
+            // GitHub docs serve the table as a single line
+            let html = "<table><thead><tr><th scope=\"col\">Model</th><th scope=\"col\">Multiplier for <strong>paid plans</strong></th><th scope=\"col\">Multiplier for <strong>Copilot Free</strong></th></tr></thead><tbody><tr><th scope=\"row\">Claude Opus 4.6</th><td>3</td><td>Not applicable</td></tr><tr><th scope=\"row\">GPT-4.1</th><td>0</td><td>1</td></tr><tr><th scope=\"row\">Grok Code Fast 1</th><td>0.25</td><td>1</td></tr><tr><th scope=\"row\">Claude Opus 4.6 (fast mode) (preview)</th><td>30</td><td>Not applicable</td></tr><tr><th scope=\"row\">Gemini 3 Flash</th><td>0.33</td><td>Not applicable</td></tr></tbody></table>"
+
+            let result = service.parseMultipliers(html: html)
+            test.assertTrue(result.count >= 5, "Parsed at least 5 models from single-line HTML (got \(result.count))")
+            test.assertApproximatelyEqual(result["Claude Opus 4.6"] ?? -1, 3.0, tolerance: 0.001, "Opus 4.6 = 3")
+            test.assertApproximatelyEqual(result["GPT-4.1"] ?? -1, 0.0, tolerance: 0.001, "GPT-4.1 = 0")
+            test.assertApproximatelyEqual(result["Grok Code Fast 1"] ?? -1, 0.25, tolerance: 0.001, "Grok = 0.25")
+            test.assertApproximatelyEqual(result["Claude Opus 4.6 (fast mode) (preview)"] ?? -1, 30.0, tolerance: 0.001, "Fast mode = 30")
+            test.assertApproximatelyEqual(result["Gemini 3 Flash"] ?? -1, 0.33, tolerance: 0.001, "Gemini Flash = 0.33")
+        }
+
+        test.run("test_ParseMultipliers_HTMLTable_SkipsNotApplicable") {
+            let service = ModelMultiplierService()
+            let html = """
+            <table><thead><tr>
+            <th scope="col">Model</th>
+            <th scope="col">Multiplier for <strong>paid plans</strong></th>
+            <th scope="col">Multiplier for <strong>Copilot Free</strong></th>
+            </tr></thead><tbody>
+            <tr><th scope="row">Goldeneye</th><td>Not applicable</td><td>1</td></tr>
+            <tr><th scope="row">Claude Opus 4.5</th><td>3</td><td>Not applicable</td></tr>
+            </tbody></table>
+            """
+
+            let result = service.parseMultipliers(html: html)
+            test.assertNil(result["Goldeneye"], "Goldeneye excluded (Not applicable for paid plans)")
+            test.assertApproximatelyEqual(result["Claude Opus 4.5"] ?? -1, 3.0, tolerance: 0.001, "Opus still parsed")
+        }
+
+        test.run("test_ParseMultipliers_HTMLTable_IgnoresWrongTable") {
+            let service = ModelMultiplierService()
+            let html = """
+            <table><thead><tr>
+            <th>Feature</th><th>Description</th>
+            </tr></thead><tbody>
+            <tr><td>Chat</td><td>Talk to Copilot</td></tr>
+            </tbody></table>
+            """
+            let result = service.parseMultipliers(html: html)
+            test.assertEqual(result.count, 0, "Wrong table structure yields no models")
+        }
+
+        // MARK: - Markdown Table Fallback Tests
+
+        test.run("test_ParseMultipliers_MarkdownFallback_ValidTable") {
             let service = ModelMultiplierService()
             let html = """
             # Model multipliers
-            
+
             | Model | Multiplier for **paid plans** | Multiplier for **Copilot Free** |
             | --- | --- | --- |
             | Claude Haiku 4.5 | 0.33 | 1 |
@@ -87,18 +165,14 @@ struct ModelMultiplierServiceTests {
             | GPT-5.4 | 1 | Not applicable |
             | Gemini 2.5 Pro | 1 | Not applicable |
             """
-            
+
             let result = service.parseMultipliers(html: html)
-            test.assertTrue(result.count >= 7, "Parsed at least 7 models (got \(result.count))")
+            test.assertTrue(result.count >= 7, "Parsed at least 7 models from markdown (got \(result.count))")
             test.assertApproximatelyEqual(result["Claude Haiku 4.5"] ?? -1, 0.33, tolerance: 0.001, "Haiku = 0.33")
             test.assertApproximatelyEqual(result["Claude Opus 4.5"] ?? -1, 3.0, tolerance: 0.001, "Opus = 3")
-            test.assertApproximatelyEqual(result["Claude Sonnet 4"] ?? -1, 1.0, tolerance: 0.001, "Sonnet = 1")
-            test.assertApproximatelyEqual(result["GPT-4o"] ?? -1, 0.0, tolerance: 0.001, "GPT-4o = 0 (included)")
-            test.assertApproximatelyEqual(result["GPT-5 mini"] ?? -1, 0.0, tolerance: 0.001, "GPT-5 mini = 0 (included)")
-            test.assertApproximatelyEqual(result["GPT-5.4"] ?? -1, 1.0, tolerance: 0.001, "GPT-5.4 = 1")
         }
 
-        test.run("test_ParseMultipliers_SkipsNotApplicable") {
+        test.run("test_ParseMultipliers_MarkdownFallback_SkipsNotApplicable") {
             let service = ModelMultiplierService()
             let html = """
             | Model | Multiplier for **paid plans** | Multiplier for **Copilot Free** |
@@ -106,9 +180,8 @@ struct ModelMultiplierServiceTests {
             | Goldeneye | Not applicable | 1 |
             | Claude Opus 4.5 | 3 | Not applicable |
             """
-            
+
             let result = service.parseMultipliers(html: html)
-            // Goldeneye should not appear (paid plan multiplier is "Not applicable")
             test.assertNil(result["Goldeneye"], "Goldeneye excluded (Not applicable for paid plans)")
             test.assertApproximatelyEqual(result["Claude Opus 4.5"] ?? -1, 3.0, tolerance: 0.001, "Opus still parsed")
         }
@@ -125,18 +198,22 @@ struct ModelMultiplierServiceTests {
             test.assertEqual(result.count, 0, "No table yields no models")
         }
 
-        test.run("test_ParseMultipliers_IgnoresWrongTable") {
+        // MARK: - URL Configuration Tests
+
+        test.run("test_MultipliersURL_DefaultValue") {
+            UserDefaults.standard.removeObject(forKey: ModelMultiplierConfiguration.urlKey)
             let service = ModelMultiplierService()
-            // A table that has different headers should be ignored
-            let html = """
-            | Feature | Description |
-            | --- | --- |
-            | Chat | Talk to Copilot |
-            | Edit | Edit code |
-            """
-            
-            let result = service.parseMultipliers(html: html)
-            test.assertEqual(result.count, 0, "Wrong table structure yields no models")
+            test.assertEqual(service.multipliersURL, ModelMultiplierConfiguration.defaultMultipliersURL, "Default URL is set")
+        }
+
+        test.run("test_MultipliersURL_CustomValue") {
+            let service = ModelMultiplierService()
+            let customURL = "https://example.com/custom-multipliers"
+            service.multipliersURL = customURL
+            test.assertEqual(service.multipliersURL, customURL, "Custom URL is persisted")
+
+            // Clean up
+            UserDefaults.standard.removeObject(forKey: ModelMultiplierConfiguration.urlKey)
         }
 
         // MARK: - Cache Tests

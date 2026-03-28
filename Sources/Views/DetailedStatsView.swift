@@ -11,6 +11,7 @@ struct DetailedStatsView: View {
     @State private var multiplierUpdateSuccess = false
     @State private var hoveredDay: DailyUsage? = nil
     @State private var tooltipPosition: CGPoint = .zero
+    @State private var multipliersURL: String = ModelMultiplierService.shared.multipliersURL
     
     var body: some View {
         ScrollView {
@@ -557,9 +558,32 @@ struct DetailedStatsView: View {
             .font(.caption)
             .padding(.vertical, 4)
             
+            // Source URL field
+            HStack(spacing: 8) {
+                Text("Source URL:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("Multiplier data URL", text: $multipliersURL)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption.monospaced())
+                    .onSubmit {
+                        multiplierService.multipliersURL = multipliersURL
+                    }
+                Button {
+                    multipliersURL = ModelMultiplierConfiguration.defaultMultipliersURL
+                    multiplierService.multipliersURL = multipliersURL
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help("Reset to default URL")
+            }
+            
             // Update button + status
             HStack(spacing: 12) {
                 Button {
+                    multiplierService.multipliersURL = multipliersURL
                     Task { await updateMultipliers() }
                 } label: {
                     HStack(spacing: 6) {

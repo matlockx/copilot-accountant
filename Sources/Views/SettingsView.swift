@@ -512,7 +512,18 @@ struct SettingsView: View {
     }
 
     private func closeSettingsWindow() {
-        NSApp.keyWindow?.close()
+        // For LSUIElement (menu bar) apps, NSApp.keyWindow may be nil
+        // because the app doesn't always properly become key.
+        // Find the settings window by checking all app windows.
+        if let keyWindow = NSApp.keyWindow {
+            keyWindow.close()
+        } else {
+            // Fallback: find any window with "Settings" title
+            for window in NSApp.windows where window.title == "Settings" && window.isVisible {
+                window.close()
+                return
+            }
+        }
     }
     
     private func saveSettings() {
