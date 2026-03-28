@@ -29,13 +29,14 @@ struct SettingsTests {
             test.assertEqual(config.username, "", "Default username is empty")
             test.assertEqual(config.pollingIntervalMinutes, 5, "Default polling is 5")
             test.assertTrue(config.notificationsEnabled, "Notifications enabled")
-            test.assertFalse(config.customAlertEnabled, "Custom alert disabled by default")
-            test.assertEqual(config.customAlertPercent, 75, "Custom alert default is 75%")
+            test.assertFalse(config.alertAt80Percent, "80% alert disabled by default")
+            test.assertTrue(config.notifyEveryPercent, "Every-percent notifications enabled by default")
+            test.assertEqual(config.customAlerts.count, 0, "No custom alerts by default")
             test.assertFalse(config.launchAtLogin, "Launch at login disabled")
         }
         
         test.run("test_Settings_ConfigIsCodable") {
-            let config = BudgetConfig(monthlyBudget: 500, username: "testuser", pollingIntervalMinutes: 10, notificationsEnabled: false, alertAt80Percent: true, alertAt90Percent: false, customAlertEnabled: true, customAlertPercent: 68, launchAtLogin: true)
+            let config = BudgetConfig(monthlyBudget: 500, username: "testuser", pollingIntervalMinutes: 10, notificationsEnabled: false, alertAt80Percent: true, alertAt90Percent: false, customAlerts: [CustomAlertThreshold(percent: 68, isEnabled: false), CustomAlertThreshold(percent: 72, isEnabled: true)], notifyEveryPercent: true, launchAtLogin: true)
             do {
                 let encoded = try JSONEncoder().encode(config)
                 let decoded = try JSONDecoder().decode(BudgetConfig.self, from: encoded)
@@ -43,8 +44,9 @@ struct SettingsTests {
                 test.assertEqual(decoded.username, "testuser", "username preserved")
                 test.assertEqual(decoded.pollingIntervalMinutes, 10, "pollingInterval preserved")
                 test.assertEqual(decoded.notificationsEnabled, false, "notificationsEnabled preserved")
-                test.assertEqual(decoded.customAlertEnabled, true, "customAlertEnabled preserved")
-                test.assertEqual(decoded.customAlertPercent, 68, "customAlertPercent preserved")
+                test.assertFalse(decoded.customAlerts[0].isEnabled, "disabled custom alert preserved")
+                test.assertTrue(decoded.customAlerts[1].isEnabled, "enabled custom alert preserved")
+                test.assertEqual(decoded.notifyEveryPercent, true, "notifyEveryPercent preserved")
                 test.assertEqual(decoded.launchAtLogin, true, "launchAtLogin preserved")
             } catch { test.assertTrue(false, "Should not throw: \(error)") }
         }
@@ -60,24 +62,35 @@ struct SettingsTests {
         test.run("test_Settings_UserDefaultsStorage") {
             let testKey = "testBudgetConfig_\(UUID().uuidString)"
             let userDefaults = UserDefaults.standard
-            let config = BudgetConfig(monthlyBudget: 750, username: "persisteduser", pollingIntervalMinutes: 30, notificationsEnabled: true, alertAt80Percent: false, alertAt90Percent: true, customAlertEnabled: true, customAlertPercent: 82, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 750, username: "persisteduser", pollingIntervalMinutes: 30, notificationsEnabled: true, alertAt80Percent: false, alertAt90Percent: true, customAlerts: [CustomAlertThreshold(percent: 82, isEnabled: false), CustomAlertThreshold(percent: 91, isEnabled: true)], notifyEveryPercent: true, launchAtLogin: false)
             if let encoded = try? JSONEncoder().encode(config) {
                 userDefaults.set(encoded, forKey: testKey)
                 if let data = userDefaults.data(forKey: testKey),
                    let decoded = try? JSONDecoder().decode(BudgetConfig.self, from: data) {
                     test.assertEqual(decoded.monthlyBudget, 750, "Budget persisted")
                     test.assertEqual(decoded.username, "persisteduser", "Username persisted")
-                    test.assertEqual(decoded.customAlertPercent, 82, "Custom alert percent persisted")
+                    test.assertFalse(decoded.customAlerts[0].isEnabled, "Disabled custom alert persisted")
+                    test.assertTrue(decoded.customAlerts[1].isEnabled, "Enabled custom alert persisted")
+                    test.assertEqual(decoded.notifyEveryPercent, true, "Per-percent preference persisted")
                 } else { test.assertTrue(false, "Should decode") }
             } else { test.assertTrue(false, "Should encode") }
             userDefaults.removeObject(forKey: testKey)
         }
 
         test.run("test_Settings_NotificationSection_IncludesCustomAlertControl") {
-            test.assertEqual(NotificationSettingsConfiguration.customAlertFieldTitle, "Custom alert at", "Settings exposes custom threshold label")
+            test.assertEqual(NotificationSettingsConfiguration.customAlertFieldTitle, "Custom alerts", "Settings exposes custom alerts label")
             test.assertEqual(NotificationSettingsConfiguration.customAlertSuffix, "%", "Custom threshold uses percent suffix")
             test.assertEqual(NotificationSettingsConfiguration.customAlertFieldWidth, 56, "Custom threshold field has a compact fixed width")
             test.assertEqual(NotificationSettingsConfiguration.customAlertRowSpacing, 8, "Custom threshold row uses consistent spacing")
+            test.assertEqual(NotificationSettingsConfiguration.addCustomAlertButtonTitle, "Add alert", "Settings exposes add custom alert button")
+            test.assertEqual(NotificationSettingsConfiguration.removeCustomAlertButtonTitle, "Remove", "Settings exposes remove custom alert button")
+            test.assertEqual(NotificationSettingsConfiguration.customAlertToggleTitle, "Enabled", "Settings exposes per-alert enabled checkbox label")
+            test.assertEqual(NotificationSettingsConfiguration.everyPercentToggleTitle, "Notify on every full percent", "Settings exposes per-percent notification toggle")
+            test.assertEqual(SettingsViewConfiguration.formLabelWidth, 190, "Settings uses a stable label column width")
+            test.assertEqual(SettingsViewConfiguration.formFieldSpacing, 12, "Settings rows use consistent field spacing")
+            test.assertEqual(SettingsViewConfiguration.utilityButtonWidth, 120, "Settings utility buttons share a common width")
+            test.assertEqual(SettingsAlertConfiguration.successTitle, "Validation Succeeded", "Success alert uses a success title")
+            test.assertEqual(SettingsAlertConfiguration.failureTitle, "Validation Failed", "Failure alert keeps failure title")
         }
 
         test.run("test_Settings_Layout_UsesPinnedFooterForActions") {

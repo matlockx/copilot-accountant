@@ -80,7 +80,8 @@
 **Tests:** `Tests/NotificationTests.swift`
 
 - Configurable threshold alerts at 80% and 90%
-- Configurable custom threshold alert percentage
+- Configurable custom threshold alerts with per-alert enable/disable and add/remove controls
+- Optional notifications at every newly reached full usage percentage
 - Only alerts once per threshold per billing cycle
 - Resets alert state when usage drops (new month)
 - API error notifications
@@ -93,13 +94,16 @@
 
 - Saves configuration to UserDefaults
 - Settings window keeps `Cancel` and `Save` visible in a pinned footer while the rest of the form scrolls
+- Settings content uses a consistent two-column layout with right-aligned controls and equal-width utility buttons
+- Saved token can be revealed or hidden from Settings without retyping it
 - Persists:
   - GitHub username
   - Monthly budget (default: 300)
   - Polling interval
   - Notification preferences
   - Alert thresholds (80%, 90%)
-  - Custom alert threshold percentage
+  - Custom alert thresholds list with enabled state
+  - Per-percent milestone notification preference
   - Launch at login preference
 - Caches last usage data for offline display
 
@@ -160,6 +164,12 @@
 - App bundle includes a custom Finder icon instead of the default placeholder
 - `Info.plist` declares the icon resource for macOS app bundles
 - App bundle creation copies the icon into `Contents/Resources`
+
+### F015: Installer Workflow
+**Status:** Implemented  
+**Tests:** `Tests/InstallerTests.swift`
+
+- `install.sh` verifies the bundle, installs it into `/Applications`, and launches the app automatically at the end of a successful install
 
 ---
 

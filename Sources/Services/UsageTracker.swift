@@ -22,14 +22,16 @@ class UsageTracker: ObservableObject {
     private var pollingTimer: Timer?
     private var hasAlerted80 = false
     private var hasAlerted90 = false
-    private var hasAlertedCustom = false
+    private var alertedCustomPercentages: Set<Int> = []
+    private var lastAlertedWholePercent = 0
     
     private let configKey = "budgetConfig"
     private let dailyUsageKey = "cachedDailyUsage"
     private let lastUsageKey = "cachedUsage"
     private let alert80Key = "hasAlerted80"
     private let alert90Key = "hasAlerted90"
-    private let alertCustomKey = "hasAlertedCustom"
+    private let alertCustomPercentagesKey = "alertedCustomPercentages"
+    private let lastAlertedWholePercentKey = "lastAlertedWholePercent"
     
     init() {
         log.info("UsageTracker initializing")
@@ -50,7 +52,10 @@ class UsageTracker: ObservableObject {
         // Load alert states
         hasAlerted80 = userDefaults.bool(forKey: alert80Key)
         hasAlerted90 = userDefaults.bool(forKey: alert90Key)
-        hasAlertedCustom = userDefaults.bool(forKey: alertCustomKey)
+        if let storedCustomPercentages = userDefaults.array(forKey: alertCustomPercentagesKey) as? [Int] {
+            alertedCustomPercentages = Set(storedCustomPercentages)
+        }
+        lastAlertedWholePercent = userDefaults.integer(forKey: lastAlertedWholePercentKey)
     }
 
     static func postUsageUpdatedNotification() {
@@ -168,18 +173,31 @@ class UsageTracker: ObservableObject {
         let used = usage.totalRequests
         let threshold80 = config.threshold80
         let threshold90 = config.threshold90
+        let wholePercentUsed = config.wholePercentUsed(for: used)
         
         // Reset alerts if usage dropped (new month)
         if used < threshold80 {
             hasAlerted80 = false
             hasAlerted90 = false
-            hasAlertedCustom = false
+            alertedCustomPercentages = []
+            lastAlertedWholePercent = 0
             userDefaults.set(false, forKey: alert80Key)
             userDefaults.set(false, forKey: alert90Key)
-            userDefaults.set(false, forKey: alertCustomKey)
+            userDefaults.removeObject(forKey: alertCustomPercentagesKey)
+            userDefaults.set(0, forKey: lastAlertedWholePercentKey)
         }
         
         guard config.notificationsEnabled else { return }
+
+        if config.notifyEveryPercent && wholePercentUsed > lastAlertedWholePercent && wholePercentUsed > 0 {
+            notificationService.sendNotification(
+                type: .percentageMilestone(wholePercentUsed),
+                currentUsage: used,
+                budget: config.monthlyBudget
+            )
+            lastAlertedWholePercent = wholePercentUsed
+            userDefaults.set(wholePercentUsed, forKey: lastAlertedWholePercentKey)
+        }
         
         // 90% alert
         if config.alertAt90Percent && used >= threshold90 && !hasAlerted90 {
@@ -192,14 +210,14 @@ class UsageTracker: ObservableObject {
             userDefaults.set(true, forKey: alert90Key)
         }
 
-        if config.customAlertEnabled && used >= config.customThreshold && !hasAlertedCustom {
+        for customPercent in config.customAlertThresholds where used >= config.customThresholdValue(for: customPercent) && !alertedCustomPercentages.contains(customPercent) {
             notificationService.sendNotification(
-                type: .customThreshold(config.clampedCustomAlertPercent),
+                type: .customThreshold(customPercent),
                 currentUsage: used,
                 budget: config.monthlyBudget
             )
-            hasAlertedCustom = true
-            userDefaults.set(true, forKey: alertCustomKey)
+            alertedCustomPercentages.insert(customPercent)
+            userDefaults.set(Array(alertedCustomPercentages).sorted(), forKey: alertCustomPercentagesKey)
         }
         
         // 80% alert

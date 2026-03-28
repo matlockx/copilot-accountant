@@ -144,8 +144,8 @@ struct UsageCalculationTests {
                 notificationsEnabled: true,
                 alertAt80Percent: true,
                 alertAt90Percent: true,
-                customAlertEnabled: false,
-                customAlertPercent: 75,
+                customAlerts: [],
+                notifyEveryPercent: false,
                 launchAtLogin: false
             )
             
@@ -158,20 +158,20 @@ struct UsageCalculationTests {
         
         // Test 5: Zero budget edge case
         test.run("test_UsageCalculation_ZeroBudget_ReturnsZeroPercentage") {
-            let config = BudgetConfig(monthlyBudget: 0, username: "testuser", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 0, username: "testuser", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlerts: [], notifyEveryPercent: false, launchAtLogin: false)
             test.assertEqual(config.usagePercentage(used: 100), 0.0, "Zero budget should return 0%")
         }
         
         // Test 6: Threshold calculations
         test.run("test_UsageCalculation_Thresholds_CalculateCorrectly") {
-            let config = BudgetConfig(monthlyBudget: 300, username: "testuser", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 300, username: "testuser", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlerts: [], notifyEveryPercent: false, launchAtLogin: false)
             test.assertEqual(config.threshold80, 240, "80% of 300 = 240")
             test.assertEqual(config.threshold90, 270, "90% of 300 = 270")
         }
         
         // Test 7: Status colors
         test.run("test_UsageCalculation_StatusColors_CorrectForThresholds") {
-            let config = BudgetConfig(monthlyBudget: 100, username: "testuser", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 100, username: "testuser", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlerts: [], notifyEveryPercent: false, launchAtLogin: false)
             
             test.assertTrue(config.statusColor(used: 0) == .green, "0% should be green")
             test.assertTrue(config.statusColor(used: 59) == .green, "59% should be green")

@@ -14,6 +14,7 @@ class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         case threshold80
         case threshold90
         case customThreshold(Int)
+        case percentageMilestone(Int)
         case resetSoon
         case apiError
         case test
@@ -48,6 +49,11 @@ class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         case .customThreshold(let percentage):
             content.title = "Budget Alert: \(percentage)% Used"
             content.body = "You've used \(currentUsage) of \(budget) premium requests (\(percentage)%)"
+            content.sound = .default
+
+        case .percentageMilestone(let percentage):
+            content.title = "Usage Milestone: \(percentage)%"
+            content.body = "You've reached \(percentage)% of your monthly budget (\(currentUsage) of \(budget) requests)."
             content.sound = .default
              
         case .resetSoon:

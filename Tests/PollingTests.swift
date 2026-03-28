@@ -28,19 +28,19 @@ struct PollingTests {
         }
         
         test.run("test_Polling_IntervalIsConfigurable") {
-            var config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 10, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
+            var config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 10, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlerts: [], notifyEveryPercent: false, launchAtLogin: false)
             test.assertEqual(config.pollingIntervalMinutes, 10, "Accepts 10 minutes")
             config.pollingIntervalMinutes = 1
             test.assertEqual(config.pollingIntervalMinutes, 1, "Accepts 1 minute")
         }
         
         test.run("test_Polling_IntervalConvertsToSeconds") {
-            let config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
+            let config = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 5, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlerts: [], notifyEveryPercent: false, launchAtLogin: false)
             test.assertEqual(TimeInterval(config.pollingIntervalMinutes * 60), 300.0, "5 min = 300 sec")
         }
         
         test.run("test_Polling_ConfigSerialization_PreservesInterval") {
-            let original = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 15, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlertEnabled: false, customAlertPercent: 75, launchAtLogin: false)
+            let original = BudgetConfig(monthlyBudget: 300, username: "test", pollingIntervalMinutes: 15, notificationsEnabled: true, alertAt80Percent: true, alertAt90Percent: true, customAlerts: [], notifyEveryPercent: false, launchAtLogin: false)
             let encoded = try! JSONEncoder().encode(original)
             let decoded = try! JSONDecoder().decode(BudgetConfig.self, from: encoded)
             test.assertEqual(decoded.pollingIntervalMinutes, 15, "Interval survives serialization")

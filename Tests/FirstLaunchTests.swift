@@ -63,6 +63,11 @@ struct FirstLaunchTests {
             let decoded = try! JSONDecoder().decode(BudgetConfig.self, from: encoded)
             test.assertTrue(decoded.launchAtLogin, "launchAtLogin should persist")
         }
+
+        test.run("test_FirstLaunch_LaunchAtLogin_UsesServiceManagement") {
+            test.assertTrue(LaunchAtLoginConfiguration.usesServiceManagement, "Launch at login is wired through ServiceManagement")
+            test.assertTrue(LaunchAtLoginConfiguration.supportsMainAppRegistration, "Launch at login uses main app registration")
+        }
         
         test.printSummary()
     }
