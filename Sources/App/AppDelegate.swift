@@ -122,7 +122,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Observe tracker changes to update menu bar
         Task { @MainActor in
-            for await _ in NotificationCenter.default.notifications(named: NSNotification.Name("UsageUpdated")) {
+            for await _ in NotificationCenter.default.notifications(named: UsageTracker.usageUpdatedNotification) {
                 self.updateStatusBarText()
             }
         }

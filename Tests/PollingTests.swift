@@ -45,6 +45,26 @@ struct PollingTests {
             let decoded = try! JSONDecoder().decode(BudgetConfig.self, from: encoded)
             test.assertEqual(decoded.pollingIntervalMinutes, 15, "Interval survives serialization")
         }
+
+        test.run("test_Polling_UsageUpdatedNotificationName_IsStable") {
+            test.assertEqual(UsageTracker.usageUpdatedNotification.rawValue, "UsageUpdated", "Notification name matches AppDelegate observer")
+        }
+
+        test.run("test_Polling_PostUsageUpdatedNotification_PostsExpectedEvent") {
+            var received = false
+            let observer = NotificationCenter.default.addObserver(
+                forName: UsageTracker.usageUpdatedNotification,
+                object: nil,
+                queue: nil
+            ) { _ in
+                received = true
+            }
+
+            UsageTracker.postUsageUpdatedNotification()
+
+            test.assertTrue(received, "Posting usage update notification notifies observers synchronously")
+            NotificationCenter.default.removeObserver(observer)
+        }
         
         test.printSummary()
     }

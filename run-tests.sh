@@ -32,6 +32,7 @@ SOURCE_FILES=(
     "Sources/Services/KeychainService.swift"
     "Sources/Services/NotificationService.swift"
     "Sources/Services/GitHubAPIService.swift"
+    "Sources/Services/UsageTracker.swift"
 )
 
 # Check if source files exist

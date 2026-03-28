@@ -4,6 +4,8 @@ import Combine
 /// Main tracker that manages usage data and polling
 @MainActor
 class UsageTracker: ObservableObject {
+    static let usageUpdatedNotification = Notification.Name("UsageUpdated")
+
     @Published var currentUsage: UsageResponse?
     @Published var dailyUsage: [DailyUsage] = []
     @Published var isLoading = false
@@ -46,6 +48,10 @@ class UsageTracker: ObservableObject {
         // Load alert states
         hasAlerted80 = userDefaults.bool(forKey: alert80Key)
         hasAlerted90 = userDefaults.bool(forKey: alert90Key)
+    }
+
+    static func postUsageUpdatedNotification() {
+        NotificationCenter.default.post(name: usageUpdatedNotification, object: nil)
     }
     
     /// Start polling for updates
@@ -101,6 +107,7 @@ class UsageTracker: ObservableObject {
             let usage = try await apiService.fetchUsage(username: config.username, token: token)
             currentUsage = usage
             lastUpdateTime = Date()
+            Self.postUsageUpdatedNotification()
             
             log.info("Usage fetched successfully: \(usage.totalRequests) total requests")
             
@@ -217,6 +224,7 @@ class UsageTracker: ObservableObject {
         if let data = userDefaults.data(forKey: lastUsageKey),
            let decoded = try? JSONDecoder().decode(UsageResponse.self, from: data) {
             currentUsage = decoded
+            Self.postUsageUpdatedNotification()
         }
         
         // Load daily usage
