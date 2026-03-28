@@ -249,6 +249,7 @@ Sources/                   # Implementation
 | F013 | Detailed Statistics View | DetailedStatsTests.swift |
 | F016 | Dynamic Model Multipliers | ModelMultiplierServiceTests.swift |
 | F017 | All Models Catalog | ModelMultiplierServiceTests.swift |
+| F018 | Spending Budget Integration | SpendingBudgetTests.swift |
 
 ---
 

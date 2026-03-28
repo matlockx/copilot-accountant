@@ -22,6 +22,7 @@ class UsageTracker: ObservableObject {
 
     @Published var currentUsage: UsageResponse?
     @Published var dailyUsage: [DailyUsage] = []
+    @Published var spendingBudget: SpendingBudgetSummary?
     @Published var isLoading = false
     @Published var lastError: String?
     @Published var lastUpdateTime: Date?
@@ -42,6 +43,7 @@ class UsageTracker: ObservableObject {
     private let configKey = "budgetConfig"
     private let dailyUsageKey = "cachedDailyUsage"
     private let lastUsageKey = "cachedUsage"
+    private let spendingBudgetKey = "cachedSpendingBudget"
     private let alert80Key = "hasAlerted80"
     private let alert90Key = "hasAlerted90"
     private let alertCustomPercentagesKey = "alertedCustomPercentages"
@@ -141,9 +143,12 @@ class UsageTracker: ObservableObject {
             // Check for alerts
             checkAndSendAlerts(usage: usage, reason: reason)
             
-            // Fetch daily breakdown in background
+            // Fetch daily breakdown and budgets in background
             Task {
                 await fetchDailyUsage()
+            }
+            Task {
+                await fetchSpendingBudgets(usage: usage)
             }
             
         } catch {
@@ -179,6 +184,47 @@ class UsageTracker: ObservableObject {
             }
         } catch {
             log.error("Failed to fetch daily usage: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Fetch spending budgets from GitHub API
+    private func fetchSpendingBudgets(usage: UsageResponse) async {
+        guard !config.username.isEmpty,
+              let token = try? keychainService.loadToken() else {
+            return
+        }
+        
+        do {
+            guard let budgetResponse = try await apiService.fetchBudgets(username: config.username, token: token) else {
+                log.info("No budget data available for this account")
+                spendingBudget = nil
+                userDefaults.removeObject(forKey: spendingBudgetKey)
+                return
+            }
+            
+            guard let premiumBudget = GitHubAPIService.findPremiumRequestBudget(in: budgetResponse) else {
+                log.info("No premium request budget found among \(budgetResponse.budgets.count) budget(s)")
+                spendingBudget = nil
+                userDefaults.removeObject(forKey: spendingBudgetKey)
+                return
+            }
+            
+            let summary = SpendingBudgetSummary(
+                budgetAmount: Double(premiumBudget.budgetAmount),
+                amountSpent: usage.totalNetCost,
+                preventFurtherUsage: premiumBudget.preventFurtherUsage,
+                pricePerRequest: usage.pricePerRequest
+            )
+            
+            spendingBudget = summary
+            log.info("Spending budget: $\(premiumBudget.budgetAmount), spent: $\(String(format: "%.2f", usage.totalNetCost)), prevent: \(premiumBudget.preventFurtherUsage)")
+            
+            // Cache the budget response
+            if let encoded = try? JSONEncoder().encode(premiumBudget) {
+                userDefaults.set(encoded, forKey: spendingBudgetKey)
+            }
+        } catch {
+            log.error("Failed to fetch spending budgets: \(error.localizedDescription)")
         }
     }
     
@@ -285,6 +331,17 @@ class UsageTracker: ObservableObject {
            let decoded = try? JSONDecoder().decode(UsageResponse.self, from: data) {
             currentUsage = decoded
             Self.postUsageUpdatedNotification()
+            
+            // Load cached budget and reconstruct spending summary
+            if let budgetData = userDefaults.data(forKey: spendingBudgetKey),
+               let budgetItem = try? JSONDecoder().decode(BudgetItem.self, from: budgetData) {
+                spendingBudget = SpendingBudgetSummary(
+                    budgetAmount: Double(budgetItem.budgetAmount),
+                    amountSpent: decoded.totalNetCost,
+                    preventFurtherUsage: budgetItem.preventFurtherUsage,
+                    pricePerRequest: decoded.pricePerRequest
+                )
+            }
         }
         
         // Load daily usage

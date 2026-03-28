@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.7
+## Version: 1.0.8
 ## Last Updated: 2026-03-28
 
 ---
@@ -216,6 +216,24 @@
 - Unused models displayed at reduced opacity (0.6)
 - Empty state card when no models available
 
+### F018: Spending Budget Integration
+**Status:** Implemented  
+**Tests:** `Tests/SpendingBudgetTests.swift`
+
+- Fetches dollar spending budget from GitHub API (`GET /users/{username}/settings/billing/budgets`)
+- Uses newer API version header (`2026-03-10`) for budget endpoint
+- Parses budget response: amount, spent, prevent_further_usage flag
+- Displays spending budget card in Detailed Statistics view:
+  - Budget cap amount (e.g., $15.00)
+  - Amount spent so far (from API `netCost`)
+  - Remaining budget
+  - Progress bar with color coding
+  - Whether usage stops when cap is reached
+  - Max additional premium requests possible at current price
+- Graceful fallback when budget API returns 404 (no budget configured or endpoint unavailable)
+- Budget data cached alongside usage data
+- Budget card hidden when no budget data available
+
 ---
 
 ## Data Models
@@ -261,6 +279,22 @@ struct ModelUsage: Identifiable {
 }
 ```
 
+### BudgetResponse
+```swift
+struct BudgetResponse: Codable {
+    let budgets: [BudgetItem]
+}
+```
+
+### BudgetItem
+```swift
+struct BudgetItem: Codable {
+    let budgetAmount: Int           // Dollar cap (e.g., 15)
+    let budgetProductSku: String?   // e.g., "premium_request"
+    let preventFurtherUsage: Bool   // Whether usage stops at cap
+}
+```
+
 ---
 
 ## API Endpoints
@@ -271,6 +305,7 @@ struct ModelUsage: Identifiable {
 | `GET /users/{username}/settings/billing/premium_request/usage` | Get premium request usage | Yes |
 | `GET /users/{username}/settings/billing/premium_request/usage?year=X&month=Y` | Get usage for specific month | Yes |
 | `GET /users/{username}/settings/billing/premium_request/usage?year=X&month=Y&day=Z` | Get usage for specific day | Yes |
+| `GET /users/{username}/settings/billing/budgets` | Get spending budgets (API version 2026-03-10) | Yes |
 
 ---
 
@@ -308,6 +343,14 @@ struct ModelUsage: Identifiable {
 ---
 
 ## Changelog
+
+### 1.0.8 (2026-03-28)
+- F018: Spending Budget Integration — fetch and display GitHub dollar spending budget
+  - Budget card in Detailed Statistics showing cap, spent, remaining, progress bar
+  - Calculates max additional premium requests possible at current price
+  - Shows whether usage stops when cap is reached
+  - Graceful fallback when budget API unavailable (404)
+  - Uses newer API version (2026-03-10) for budget endpoint
 
 ### 1.0.7 (2026-03-28)
 - F013: Interactive chart tooltip — hover over daily usage bars to see full date and exact request count

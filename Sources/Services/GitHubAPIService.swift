@@ -5,6 +5,8 @@ class GitHubAPIService {
     private let baseURL = "https://api.github.com"
     // Use the latest API version as shown in GitHub docs
     private let apiVersion = "2022-11-28"
+    // Budget API requires a newer API version
+    private let budgetApiVersion = "2026-03-10"
     private let log = LogService.shared
     
     enum APIError: LocalizedError {
@@ -130,12 +132,50 @@ class GitHubAPIService {
         return dailyUsage
     }
     
+    /// Fetch spending budgets for the user
+    /// Uses undocumented user-level endpoint (mirrors org endpoint pattern)
+    /// Returns nil if the endpoint is unavailable (404) rather than throwing
+    func fetchBudgets(username: String, token: String) async throws -> BudgetResponse? {
+        log.info("Fetching spending budgets for user: \(username)")
+        let endpoint = "/users/\(username)/settings/billing/budgets"
+        
+        do {
+            let response: BudgetResponse = try await makeRequest(
+                endpoint: endpoint,
+                token: token,
+                apiVersionOverride: budgetApiVersion
+            )
+            log.info("Budgets fetched successfully: \(response.budgets.count) budget(s)")
+            return response
+        } catch APIError.notFound(_) {
+            log.info("Budget endpoint returned 404 — budgets not available for this account")
+            return nil
+        }
+    }
+    
+    /// Find the premium request budget from a budget response
+    static func findPremiumRequestBudget(in response: BudgetResponse) -> BudgetItem? {
+        // Look for a budget matching "premium_request" SKU first
+        if let premiumBudget = response.budgets.first(where: { 
+            $0.budgetProductSku?.lowercased().contains("premium") == true
+        }) {
+            return premiumBudget
+        }
+        // Fall back to first budget if only one exists
+        if response.budgets.count == 1 {
+            return response.budgets.first
+        }
+        return nil
+    }
+    
     /// Generic request method
-    private func makeRequest<T: Decodable>(endpoint: String, token: String) async throws -> T {
+    private func makeRequest<T: Decodable>(endpoint: String, token: String, apiVersionOverride: String? = nil) async throws -> T {
         guard let url = URL(string: baseURL + endpoint) else {
             log.error("Invalid URL: \(baseURL + endpoint)")
             throw APIError.invalidURL
         }
+        
+        let effectiveApiVersion = apiVersionOverride ?? apiVersion
         
         log.debug("Making request to: \(url.absoluteString)")
         log.debug("Token (first 10 chars): \(String(token.prefix(10)))...")
@@ -144,9 +184,9 @@ class GitHubAPIService {
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue(apiVersion, forHTTPHeaderField: "X-GitHub-Api-Version")
+        request.setValue(effectiveApiVersion, forHTTPHeaderField: "X-GitHub-Api-Version")
         
-        log.debug("Request headers: Accept=application/vnd.github+json, X-GitHub-Api-Version=\(apiVersion)")
+        log.debug("Request headers: Accept=application/vnd.github+json, X-GitHub-Api-Version=\(effectiveApiVersion)")
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)

@@ -29,6 +29,11 @@ struct DetailedStatsView: View {
                     emptyStateCard(DetailedStatsEmptyState.noUsage)
                 }
                 
+                // Spending budget card (F018)
+                if let budget = tracker.spendingBudget {
+                    spendingBudgetCard(budget: budget)
+                }
+                
                 Divider()
                 
                 // Usage breakdown section
@@ -158,6 +163,116 @@ struct DetailedStatsView: View {
             .background(Color(nsColor: .controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
+    }
+    
+    // MARK: - Spending Budget Card (F018)
+    
+    private func spendingBudgetCard(budget: SpendingBudgetSummary) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Spending Budget")
+                    .font(.headline)
+                
+                Spacer()
+                
+                // Hard/soft cap indicator
+                if budget.preventFurtherUsage {
+                    Label("Hard cap", systemImage: "exclamationmark.octagon.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                } else {
+                    Label("Soft cap", systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            HStack(spacing: 24) {
+                // Budget amount
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Budget")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(currency(budget.budgetAmount))
+                        .font(.title2.bold())
+                }
+                
+                // Amount spent
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Spent")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(currency(budget.amountSpent))
+                        .font(.title2.bold())
+                        .foregroundColor(budget.isCapReached ? .red : .primary)
+                }
+                
+                // Remaining
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Remaining")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(currency(budget.remaining))
+                        .font(.title2.bold())
+                        .foregroundColor(budget.remaining > 0 ? .green : .red)
+                }
+                
+                Spacer()
+            }
+            
+            // Progress bar
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: min(budget.percentUsed, 100), total: 100)
+                    .tint(spendingBudgetColor(percent: budget.percentUsed))
+                
+                HStack {
+                    Text(String(format: "%.1f%% of budget used", budget.percentUsed))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    if budget.maxAdditionalRequests > 0 {
+                        Text("\(budget.maxAdditionalRequests) more premium requests possible")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else if budget.isCapReached {
+                        Text("Budget exhausted")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+            }
+            
+            // Cap reached warning
+            if budget.isCapReached && budget.preventFurtherUsage {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text("Spending cap reached. Premium request usage will stop until next billing cycle.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
+    }
+    
+    private func spendingBudgetColor(percent: Double) -> Color {
+        if percent >= 100 {
+            return .red
+        } else if percent >= 80 {
+            return .orange
+        } else if percent >= 60 {
+            return .yellow
+        } else {
+            return .green
+        }
     }
     
     // MARK: - Usage Breakdown Section

@@ -1,5 +1,66 @@
 import Foundation
 
+// MARK: - Budget API Models (F018)
+
+/// Response from GitHub budget API
+/// Endpoint: GET /users/{username}/settings/billing/budgets
+/// API version: 2026-03-10
+struct BudgetResponse: Codable {
+    let budgets: [BudgetItem]
+    let hasNextPage: Bool?
+    let totalCount: Int?
+}
+
+/// Individual budget entry from the API
+struct BudgetItem: Codable, Equatable {
+    let id: String?
+    let budgetType: String?           // e.g., "SkuPricing", "ProductPricing"
+    let budgetAmount: Int             // Dollar cap (e.g., 15)
+    let preventFurtherUsage: Bool     // Whether usage stops at cap
+    let budgetScope: String?          // e.g., "user"
+    let budgetEntityName: String?     // e.g., "matlockx"
+    let budgetProductSku: String?     // e.g., "premium_request"
+    let budgetAlerting: BudgetAlerting?
+}
+
+/// Budget alerting configuration
+struct BudgetAlerting: Codable, Equatable {
+    let willAlert: Bool?
+    let alertRecipients: [String]?
+}
+
+/// Computed spending summary combining budget data with usage data
+struct SpendingBudgetSummary: Equatable {
+    let budgetAmount: Double          // Dollar cap
+    let amountSpent: Double           // From usage netCost
+    let preventFurtherUsage: Bool     // Hard cap or soft cap
+    let pricePerRequest: Double       // Current price per premium request
+    
+    /// Remaining budget in dollars
+    var remaining: Double {
+        max(0, budgetAmount - amountSpent)
+    }
+    
+    /// Usage percentage of the spending budget
+    var percentUsed: Double {
+        guard budgetAmount > 0 else { return 0 }
+        return (amountSpent / budgetAmount) * 100.0
+    }
+    
+    /// Whether the budget cap has been reached
+    var isCapReached: Bool {
+        amountSpent >= budgetAmount
+    }
+    
+    /// Maximum additional premium requests possible at current price
+    var maxAdditionalRequests: Int {
+        guard pricePerRequest > 0 else { return 0 }
+        return Int((remaining / pricePerRequest).rounded(.down))
+    }
+}
+
+// MARK: - Usage Data Models
+
 /// Represents usage data for a specific product/model
 struct UsageItem: Codable, Identifiable {
     let id = UUID()
