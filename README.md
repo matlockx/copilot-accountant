@@ -104,14 +104,13 @@ Quick stats with:
 
 ### 1. Create a GitHub Personal Access Token
 
-1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens)
-2. Click "Generate new token (classic)"
+1. Go to [GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens](https://github.com/settings/personal-access-tokens/new)
+2. Click "Generate new token"
 3. Give it a descriptive name (e.g., "Copilot Accountant")
-4. Select the following scopes:
-   - `read:user` - Read your user profile
-   - `read:org` - Read organization data (if applicable)
-5. Click "Generate token"
-6. **Copy the token immediately** (you won't see it again!)
+4. Set expiration as desired
+5. Under "Account permissions", find "Plan" and set it to "Read-only"
+6. Click "Generate token"
+7. **Copy the token immediately** (you won't see it again!)
 
 ### 2. Configure the App
 
@@ -187,9 +186,10 @@ The app sends macOS notifications when:
 
 ### "Token validation failed"
 
-- Verify your token has the correct scopes (`read:user`)
+- Verify your token has the correct permissions (needs "Plan" read access)
 - Try regenerating your token on GitHub
 - Make sure you copied the entire token without extra spaces
+- Ensure you're using a fine-grained token (not classic token)
 
 ### "Failed to fetch usage data"
 
@@ -210,6 +210,8 @@ GET /users/{username}/settings/billing/premium_request/usage
 ```
 
 API documentation: [GitHub Billing Usage API](https://docs.github.com/en/rest/billing/usage)
+
+> **Note**: This endpoint requires a fine-grained personal access token with "Plan" read access. Classic tokens (with scopes like `read:user`) will not work.
 
 ## Privacy & Security
 
