@@ -48,7 +48,7 @@ struct SettingsView: View {
     
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: SettingsViewConfiguration.sectionSpacing) {
                     settingsSection("GitHub Account") {
                         settingsGrid {
                             GridRow {
@@ -85,6 +85,7 @@ struct SettingsView: View {
                                                 .truncationMode(.middle)
                                                 .frame(maxWidth: .infinity, alignment: .trailing)
                                             Button("Delete") { deleteToken() }
+                                                .foregroundColor(.red)
                                                 .frame(width: SettingsViewConfiguration.utilityButtonWidth)
                                         }
                                     }
@@ -289,17 +290,7 @@ struct SettingsView: View {
             .padding(.bottom, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(nsColor: .controlBackgroundColor),
-                    Color(nsColor: .underPageBackgroundColor)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(Color(nsColor: .windowBackgroundColor))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Divider()
@@ -321,7 +312,7 @@ struct SettingsView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: SettingsViewConfiguration.footerHeight)
-            .background(.ultraThinMaterial)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(width: SettingsViewConfiguration.windowSize.width, height: SettingsViewConfiguration.windowSize.height)
         .alert(validationAlertTitle, isPresented: $showingValidationAlert) {
@@ -379,22 +370,10 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 content()
             }
-            .padding(20)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(nsColor: .controlBackgroundColor),
-                        Color(nsColor: .quaternaryLabelColor).opacity(0.08)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
-            )
+            .padding(SettingsViewConfiguration.cardPadding)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: SettingsViewConfiguration.cardCornerRadius, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
         }
     }
 

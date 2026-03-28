@@ -26,7 +26,7 @@ enum TokenRevealBehavior {
 }
 
 enum SettingsSurfaceStyle {
-    case tintedCards
+    case flatCards
 }
 
 enum CustomAlertLayoutStyle {
@@ -42,24 +42,27 @@ struct SettingsViewConfiguration {
     static let layoutStyle: SettingsLayoutStyle = .twoColumnGrid
     static let controlColumnAlignment: SettingsColumnAlignment = .trailing
     static let tokenRevealBehavior: TokenRevealBehavior = .savedTokenOnly
-    static let surfaceStyle: SettingsSurfaceStyle = .tintedCards
+    static let surfaceStyle: SettingsSurfaceStyle = .flatCards
     static let customAlertLayout: CustomAlertLayoutStyle = .valueCheckboxRemove
     static let colorStyle: SettingsColorStyle = .neutralGray
-    static let footerHeight: CGFloat = 60
+    static let footerHeight: CGFloat = 56
     static let footerButtonTitles = ["Cancel", "Save"]
-    static let windowSize = CGSize(width: 620, height: 620)
+    static let windowSize = CGSize(width: 560, height: 640)
     static let formOuterPadding: CGFloat = 24
-    static let formLabelWidth: CGFloat = 190
-    static let formFieldSpacing: CGFloat = 12
-    static let utilityButtonWidth: CGFloat = 120
-    static let footerButtonWidth: CGFloat = 120
-    static let actionColumnWidth: CGFloat = 120
-    static let valueFieldWidth: CGFloat = 96
+    static let sectionSpacing: CGFloat = 24
+    static let cardPadding: CGFloat = 20
+    static let cardCornerRadius: CGFloat = 10
+    static let formLabelWidth: CGFloat = 160
+    static let formFieldSpacing: CGFloat = 10
+    static let utilityButtonWidth: CGFloat = 100
+    static let footerButtonWidth: CGFloat = 100
+    static let actionColumnWidth: CGFloat = 100
+    static let valueFieldWidth: CGFloat = 80
     static let tokenFieldWidth: CGFloat = 236
     static let toggleColumnWidth: CGFloat = 32
     static let checkboxColumnWidth: CGFloat = 32
-    static let customAlertValueColumnWidth: CGFloat = 140
-    static let notificationControlWidth: CGFloat = 316
+    static let customAlertValueColumnWidth: CGFloat = 120
+    static let notificationControlWidth: CGFloat = 300
     static let checkboxColumnAlignment: CheckboxColumnAlignment = .sharedVerticalColumn
     static let footerPresentation: FooterPresentationStyle = .safeAreaInsetBar
     static let escapeKeyClosesWindow = true

@@ -197,6 +197,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             let settingsView = SettingsView(tracker: tracker!)
             let hostingController = NSHostingController(rootView: settingsView)
+            // Prevent hosting controller from auto-sizing the window down
+            hostingController.preferredContentSize = SettingsViewConfiguration.windowSize
+            if #available(macOS 14.0, *) {
+                hostingController.sizingOptions = [.preferredContentSize, .maxSize]
+            }
             
             let window = EscapeClosableWindow(contentViewController: hostingController)
             window.title = "Settings"

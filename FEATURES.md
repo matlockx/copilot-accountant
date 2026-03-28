@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.5
+## Version: 1.0.6
 ## Last Updated: 2026-03-28
 
 ---
@@ -300,6 +300,17 @@ struct ModelUsage: Identifiable {
 - F006: Manual refresh no longer triggers per-percent milestone notifications
 - F008: Restored stable settings padding and checkbox-column alignment
 - F008/F013: Pressing Escape closes open app windows
+
+### 1.0.6 (2026-03-28)
+- F008: Settings UI redesign — flat, modern appearance inspired by macOS native style
+  - Removed gradient backgrounds from window and section cards
+  - Flat cards with subtle shadow instead of gradient + stroke overlay
+  - Reduced card corner radius (18→10pt) for cleaner feel
+  - Tighter window size (560×640 vs 620×620) with more vertical room
+  - Reduced label/button/field widths for better density (label 160, buttons 100, fields 80)
+  - Hosting controller sizing fix prevents window from auto-shrinking
+  - Footer uses flat background instead of ultraThinMaterial
+  - Delete button uses red text for destructive action clarity
 
 ### 1.0.5 (2026-03-28)
 - F013: Added model multiplier column (informational, from GitHub Copilot docs)

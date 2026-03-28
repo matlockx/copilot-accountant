@@ -86,9 +86,9 @@ struct SettingsTests {
             test.assertEqual(NotificationSettingsConfiguration.removeCustomAlertButtonTitle, "Remove", "Settings exposes remove custom alert button")
             test.assertEqual(NotificationSettingsConfiguration.customAlertToggleTitle, "Enabled", "Settings exposes per-alert enabled checkbox label")
             test.assertEqual(NotificationSettingsConfiguration.everyPercentToggleTitle, "Notify on every full percent", "Settings exposes per-percent notification toggle")
-            test.assertEqual(SettingsViewConfiguration.formLabelWidth, 190, "Settings uses a stable label column width")
-            test.assertEqual(SettingsViewConfiguration.formFieldSpacing, 12, "Settings rows use consistent field spacing")
-            test.assertEqual(SettingsViewConfiguration.utilityButtonWidth, 120, "Settings utility buttons share a common width")
+            test.assertEqual(SettingsViewConfiguration.formLabelWidth, 160, "Settings uses a stable label column width")
+            test.assertEqual(SettingsViewConfiguration.formFieldSpacing, 10, "Settings rows use consistent field spacing")
+            test.assertEqual(SettingsViewConfiguration.utilityButtonWidth, 100, "Settings utility buttons share a common width")
             test.assertEqual(SettingsAlertConfiguration.successTitle, "Validation Succeeded", "Success alert uses a success title")
             test.assertEqual(SettingsAlertConfiguration.failureTitle, "Validation Failed", "Failure alert keeps failure title")
         }
@@ -100,8 +100,8 @@ struct SettingsTests {
 
         test.run("test_Settings_Layout_UsesExpectedFooterButtons") {
             test.assertEqual(SettingsViewConfiguration.footerButtonTitles, ["Cancel", "Save"], "Footer uses Cancel and Save buttons")
-            test.assertEqual(SettingsViewConfiguration.windowSize.width, 620, "Settings window width accommodates two-column grid")
-            test.assertEqual(SettingsViewConfiguration.windowSize.height, 620, "Settings window height stays consistent")
+            test.assertEqual(SettingsViewConfiguration.windowSize.width, 560, "Settings window width accommodates two-column grid")
+            test.assertEqual(SettingsViewConfiguration.windowSize.height, 640, "Settings window height stays consistent")
         }
 
         test.run("test_Settings_EscapeKey_ClosesOpenWindows") {

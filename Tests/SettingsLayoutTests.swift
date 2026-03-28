@@ -27,16 +27,16 @@ struct SettingsLayoutTests {
         test.run("test_SettingsLayout_UsesTwoColumnGridContract") {
             test.assertEqual(SettingsViewConfiguration.layoutStyle, .twoColumnGrid, "Settings use a two-column grid layout")
             test.assertEqual(SettingsViewConfiguration.controlColumnAlignment, .trailing, "Controls align to the trailing edge")
-            test.assertEqual(SettingsViewConfiguration.surfaceStyle, .tintedCards, "Settings use modern tinted cards")
+            test.assertEqual(SettingsViewConfiguration.surfaceStyle, .flatCards, "Settings use modern flat cards")
             test.assertEqual(SettingsViewConfiguration.colorStyle, .neutralGray, "Settings use a neutral gray palette")
         }
 
         test.run("test_SettingsLayout_UsesSharedButtonAndFieldWidths") {
-            test.assertEqual(SettingsViewConfiguration.utilityButtonWidth, 120, "Utility buttons use a shared width")
-            test.assertEqual(SettingsViewConfiguration.valueFieldWidth, 96, "Value fields use a shared width")
+            test.assertEqual(SettingsViewConfiguration.utilityButtonWidth, 100, "Utility buttons use a shared width")
+            test.assertEqual(SettingsViewConfiguration.valueFieldWidth, 80, "Value fields use a shared width")
             test.assertEqual(SettingsViewConfiguration.toggleColumnWidth, 32, "Toggle column uses a stable width")
-            test.assertEqual(SettingsViewConfiguration.notificationControlWidth, 316, "Notification controls reserve a stable right column")
-            test.assertEqual(SettingsViewConfiguration.footerButtonWidth, 120, "Footer buttons share a common width")
+            test.assertEqual(SettingsViewConfiguration.notificationControlWidth, 300, "Notification controls reserve a stable right column")
+            test.assertEqual(SettingsViewConfiguration.footerButtonWidth, 100, "Footer buttons share a common width")
         }
 
         test.run("test_SettingsLayout_CustomAlertsSupportCheckboxes") {

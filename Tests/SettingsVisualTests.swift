@@ -57,14 +57,14 @@ struct SettingsVisualTests {
 
         test.run("test_SettingsVisual_CheckboxesAndActions_UseSeparateColumns") {
             test.assertEqual(SettingsViewConfiguration.checkboxColumnWidth, 32, "Checkbox column has fixed width")
-            test.assertEqual(SettingsViewConfiguration.actionColumnWidth, 120, "Action column has fixed width")
-            test.assertEqual(SettingsViewConfiguration.notificationControlWidth, 316, "Notification row width accounts for value, checkbox, and action columns")
+            test.assertEqual(SettingsViewConfiguration.actionColumnWidth, 100, "Action column has fixed width")
+            test.assertEqual(SettingsViewConfiguration.notificationControlWidth, 300, "Notification row width accounts for value, checkbox, and action columns")
             test.assertEqual(SettingsViewConfiguration.formOuterPadding, 24, "Settings uses balanced outer padding")
         }
 
         test.run("test_SettingsVisual_Footer_UsesClickableInsetBar") {
             test.assertEqual(SettingsViewConfiguration.footerPresentation, .safeAreaInsetBar, "Footer uses a dedicated inset bar for clickability")
-            test.assertEqual(SettingsViewConfiguration.footerButtonWidth, 120, "Footer buttons keep stable width")
+            test.assertEqual(SettingsViewConfiguration.footerButtonWidth, 100, "Footer buttons keep stable width")
         }
 
         test.run("test_SettingsVisual_ContentFitsWithinWindowBounds") {
