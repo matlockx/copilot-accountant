@@ -27,6 +27,7 @@ mkdir -p "$BUILD_DIR"
 # Source files needed for tests (excluding main app entry point)
 SOURCE_FILES=(
     "Sources/Services/LogService.swift"
+    "Sources/Models/AppIconConfiguration.swift"
     "Sources/Models/UsageData.swift"
     "Sources/Models/BudgetConfig.swift"
     "Sources/Models/WindowConfiguration.swift"

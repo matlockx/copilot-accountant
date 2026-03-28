@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.1
+## Version: 1.0.2
 ## Last Updated: 2026-03-28
 
 ---
@@ -150,6 +150,14 @@
 - Progress bar with color coding
 - Days until reset display
 
+### F014: Application Icon
+**Status:** Implemented  
+**Tests:** `Tests/AppIconTests.swift`
+
+- App bundle includes a custom Finder icon instead of the default placeholder
+- `Info.plist` declares the icon resource for macOS app bundles
+- App bundle creation copies the icon into `Contents/Resources`
+
 ---
 
 ## Data Models
@@ -256,3 +264,6 @@ struct ModelUsage: Identifiable {
 - F001: Popover closes when clicking outside the app
 - F005: Token input no longer triggers macOS password manager
 - F005: Added show/hide toggle for token visibility
+
+### 1.0.2 (2026-03-28)
+- F014: Added a custom app icon to the macOS bundle

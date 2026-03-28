@@ -26,6 +26,10 @@ chmod +x "${MACOS_DIR}/CopilotAccountant"
 echo "📝 Copying Info.plist..."
 cp Resources/Info.plist "${CONTENTS_DIR}/"
 
+# Copy app icon
+echo "🎨 Copying app icon..."
+cp Resources/AppIcon.icns "${RESOURCES_DIR}/"
+
 # Create PkgInfo
 echo "APPL????" > "${CONTENTS_DIR}/PkgInfo"
 
@@ -36,4 +40,3 @@ echo "  open ${APP_DIR}"
 echo ""
 echo "To install:"
 echo "  mv ${APP_DIR} /Applications/"
-
