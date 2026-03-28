@@ -23,6 +23,7 @@ class UsageTracker: ObservableObject {
     @Published var currentUsage: UsageResponse?
     @Published var dailyUsage: [DailyUsage] = []
     @Published var spendingBudget: SpendingBudgetSummary?
+    @Published var spendingBudgetError: String?
     @Published var isLoading = false
     @Published var lastError: String?
     @Published var lastUpdateTime: Date?
@@ -143,12 +144,9 @@ class UsageTracker: ObservableObject {
             // Check for alerts
             checkAndSendAlerts(usage: usage, reason: reason)
             
-            // Fetch daily breakdown and budgets in background
+            // Fetch daily breakdown in background
             Task {
                 await fetchDailyUsage()
-            }
-            Task {
-                await fetchSpendingBudgets(usage: usage)
             }
             
         } catch {
@@ -188,16 +186,25 @@ class UsageTracker: ObservableObject {
     }
     
     /// Fetch spending budgets from GitHub API
-    private func fetchSpendingBudgets(usage: UsageResponse) async {
+    /// Called on-demand from DetailedStatsView, not during polling
+    func fetchSpendingBudgets() async {
         guard !config.username.isEmpty,
               let token = try? keychainService.loadToken() else {
             return
         }
         
+        guard let usage = currentUsage else {
+            spendingBudgetError = "No usage data available yet"
+            return
+        }
+        
+        spendingBudgetError = nil
+        
         do {
             guard let budgetResponse = try await apiService.fetchBudgets(username: config.username, token: token) else {
                 log.info("No budget data available for this account")
                 spendingBudget = nil
+                spendingBudgetError = "Budget API returned 404 — endpoint may not be available for personal accounts"
                 userDefaults.removeObject(forKey: spendingBudgetKey)
                 return
             }
@@ -205,6 +212,7 @@ class UsageTracker: ObservableObject {
             guard let premiumBudget = GitHubAPIService.findPremiumRequestBudget(in: budgetResponse) else {
                 log.info("No premium request budget found among \(budgetResponse.budgets.count) budget(s)")
                 spendingBudget = nil
+                spendingBudgetError = "No premium request budget found (\(budgetResponse.budgets.count) budget(s) returned)"
                 userDefaults.removeObject(forKey: spendingBudgetKey)
                 return
             }
@@ -225,6 +233,7 @@ class UsageTracker: ObservableObject {
             }
         } catch {
             log.error("Failed to fetch spending budgets: \(error.localizedDescription)")
+            spendingBudgetError = error.localizedDescription
         }
     }
     

@@ -346,10 +346,12 @@ struct SettingsView: View {
                         Text(revealedSavedToken.isEmpty ? "Personal Access Token (ghp_...)" : SettingsViewConfiguration.hiddenTokenMask)
                             .foregroundColor(.secondary.opacity(0.5))
                             .padding(.leading, 4)
+                            .allowsHitTesting(false)
                     } else {
                         Text(String(repeating: "•", count: min(token.count, 40)))
                             .foregroundColor(.primary)
                             .padding(.leading, 4)
+                            .allowsHitTesting(false)
                     }
                 }
             }
