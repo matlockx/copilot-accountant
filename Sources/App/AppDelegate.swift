@@ -5,6 +5,14 @@ final class EscapeClosableWindow: NSWindow {
     override func cancelOperation(_ sender: Any?) {
         close()
     }
+    
+    override var canBecomeKey: Bool {
+        return true
+    }
+    
+    override var canBecomeMain: Bool {
+        return true
+    }
 }
 
 /// Application delegate for menu bar management
@@ -183,6 +191,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func openSettings() {
+        // Activate app first for LSUIElement apps to ensure window can receive input
+        NSApp.activate(ignoringOtherApps: true)
+        
         if settingsWindow == nil {
             let settingsView = SettingsView(tracker: tracker!)
             let hostingController = NSHostingController(rootView: settingsView)
@@ -191,17 +202,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.title = "Settings"
             window.styleMask = [.titled, .closable]
             window.setContentSize(SettingsViewConfiguration.windowSize)
+            window.isReleasedWhenClosed = false
             window.center()
             
             settingsWindow = window
         }
         
         settingsWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
     
     private func openDetailedStats() {
         if #available(macOS 14.0, *) {
+            // Activate app first for LSUIElement apps to ensure window can receive input
+            NSApp.activate(ignoringOtherApps: true)
+            
             if detailedStatsWindow == nil {
                 let detailedView = DetailedStatsView(tracker: tracker!)
                 let hostingController = NSHostingController(rootView: detailedView)
@@ -211,13 +225,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 window.styleMask = DetailedStatsWindowConfiguration.styleMask
                 window.setContentSize(DetailedStatsWindowConfiguration.initialSize)
                 window.minSize = DetailedStatsWindowConfiguration.minSize
+                window.isReleasedWhenClosed = false
                 window.center()
                 
                 detailedStatsWindow = window
             }
             
             detailedStatsWindow?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
         } else {
             // Fallback for macOS < 14.0
             let alert = NSAlert()
