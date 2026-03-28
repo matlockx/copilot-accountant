@@ -219,6 +219,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if detailedStatsWindow == nil {
                 let detailedView = DetailedStatsView(tracker: tracker!)
                 let hostingController = NSHostingController(rootView: detailedView)
+                // Prevent hosting controller from auto-sizing the window down
+                hostingController.preferredContentSize = DetailedStatsWindowConfiguration.initialSize
+                if #available(macOS 14.0, *) {
+                    hostingController.sizingOptions = [.preferredContentSize, .maxSize]
+                }
                 
                 let window = EscapeClosableWindow(contentViewController: hostingController)
                 window.title = "Copilot Usage Statistics"

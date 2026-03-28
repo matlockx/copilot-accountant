@@ -141,13 +141,13 @@ struct DetailedStatsTests {
 
         test.run("test_DetailedStats_WindowConfiguration_IsResizable") {
             test.assertTrue(DetailedStatsWindowConfiguration.styleMask.contains(.resizable), "Detailed stats window supports resizing")
-            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.width, 700, "Initial width is 700")
-            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.height, 600, "Initial height is 600")
+            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.width, 820, "Initial width is 820")
+            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.height, 700, "Initial height is 700")
         }
 
         test.run("test_DetailedStats_WindowConfiguration_HasMinimumSize") {
-            test.assertEqual(DetailedStatsWindowConfiguration.minSize.width, 600, "Minimum width prevents cramped charts")
-            test.assertEqual(DetailedStatsWindowConfiguration.minSize.height, 500, "Minimum height prevents cramped charts")
+            test.assertEqual(DetailedStatsWindowConfiguration.minSize.width, 750, "Minimum width prevents clipping")
+            test.assertEqual(DetailedStatsWindowConfiguration.minSize.height, 550, "Minimum height prevents cramped charts")
         }
 
         // New tests for enhanced billing details
@@ -258,6 +258,58 @@ struct DetailedStatsTests {
             test.assertApproximatelyEqual(summary.includedPercentage, 100.0, tolerance: 0.01, "Included percentage capped at 100%")
         }
         
+        test.run("test_DetailedStats_ModelBillingDetails_IncludesMultiplier") {
+            let usage = createTestUsageWithBilling(models: [
+                (model: "Claude Opus 4.5", gross: 10.0, net: 0.0, price: 0.04),
+                (model: "Claude Haiku 4.5", gross: 10.0, net: 0.0, price: 0.04)
+            ])
+            let details = usage.modelBillingDetails()
+            let opus = details.first { $0.model == "Claude Opus 4.5" }!
+            let haiku = details.first { $0.model == "Claude Haiku 4.5" }!
+            test.assertApproximatelyEqual(opus.multiplier, 3.0, tolerance: 0.001, "Claude Opus 4.5 has 3x multiplier")
+            test.assertApproximatelyEqual(haiku.multiplier, 0.33, tolerance: 0.001, "Claude Haiku 4.5 has 0.33x multiplier")
+        }
+
+        test.run("test_DetailedStats_GrossQuantityAlreadyIncludesMultiplier") {
+            // The API's grossQuantity already accounts for model multipliers.
+            // Our "Included premium requests consumed" card should show the raw grossQuantity total,
+            // matching GitHub's web UI, NOT grossQuantity * multiplier (which would double-count).
+            let usage = createTestUsageWithBilling(models: [
+                (model: "Claude Opus 4.5", gross: 114.0, net: 0.0, price: 0.04),
+                (model: "GPT-5.4", gross: 80.0, net: 0.0, price: 0.04)
+            ])
+            // Total should be raw sum: 114 + 80 = 194, NOT 114*3 + 80*1 = 422
+            test.assertEqual(usage.totalRequests, 194, "Total uses raw grossQuantity sum (API already applies multipliers)")
+        }
+
+        test.run("test_CopilotModelMultipliers_DirectMatch") {
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "Claude Opus 4.5"), 3.0, tolerance: 0.001, "Opus 4.5 = 3x")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "Claude Sonnet 4.5"), 1.0, tolerance: 0.001, "Sonnet 4.5 = 1x")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "Claude Haiku 4.5"), 0.33, tolerance: 0.001, "Haiku 4.5 = 0.33x")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "GPT-4o"), 0.0, tolerance: 0.001, "GPT-4o = 0 (included)")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "GPT-5.4"), 1.0, tolerance: 0.001, "GPT-5.4 = 1x")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "GPT-5.4 mini"), 0.33, tolerance: 0.001, "GPT-5.4 mini = 0.33x")
+        }
+
+        test.run("test_CopilotModelMultipliers_PartialMatch") {
+            // Test fuzzy matching for models not exactly in the table
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "claude-opus-3"), 3.0, tolerance: 0.001, "Partial 'opus' match = 3x")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "claude-sonnet-3.7"), 1.0, tolerance: 0.001, "Partial 'sonnet' match = 1x")
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "claude-haiku-3.5"), 0.33, tolerance: 0.001, "Partial 'haiku' match = 0.33x")
+        }
+
+        test.run("test_CopilotModelMultipliers_UnknownModelDefaultsToOne") {
+            test.assertApproximatelyEqual(CopilotModelMultipliers.multiplier(for: "some-unknown-model"), 1.0, tolerance: 0.001, "Unknown model defaults to 1x")
+        }
+
+        test.run("test_CopilotModelMultipliers_FormatMultiplier") {
+            test.assertEqual(CopilotModelMultipliers.formatMultiplier(0.0), "Included", "0x displays as 'Included'")
+            test.assertEqual(CopilotModelMultipliers.formatMultiplier(0.33), "0.33x", "0.33x formatted correctly")
+            test.assertEqual(CopilotModelMultipliers.formatMultiplier(1.0), "1x", "1.0 formatted as '1x'")
+            test.assertEqual(CopilotModelMultipliers.formatMultiplier(3.0), "3x", "3.0 formatted as '3x'")
+            test.assertEqual(CopilotModelMultipliers.formatMultiplier(30.0), "30x", "30.0 formatted as '30x'")
+        }
+
         test.printSummary()
     }
 }

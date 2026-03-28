@@ -74,6 +74,9 @@ struct DetailedStatsView: View {
     
     private func billingCardsSection(usage: UsageResponse) -> some View {
         let summary = usage.billingSummary(includedRequests: tracker.config.monthlyBudget)
+        // GitHub's "Included premium requests consumed" uses the raw grossQuantity total
+        // The API's grossQuantity already accounts for model multipliers
+        let totalUsed = usage.usageItems.reduce(0.0) { $0 + $1.grossQuantity }
         let percentage = tracker.config.usagePercentage(used: summary.usedRequests)
         
         return HStack(spacing: 16) {
@@ -99,7 +102,7 @@ struct DetailedStatsView: View {
                 }
             }
             
-            // Included premium requests card
+            // Included premium requests card (matches GitHub's display)
             billingCard {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Included premium requests consumed")
@@ -107,15 +110,15 @@ struct DetailedStatsView: View {
                         .foregroundColor(.secondary)
                     
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(String(format: "%.2f", summary.includedUsed))
+                        Text(String(format: "%.2f", totalUsed))
                             .font(.system(size: 36, weight: .bold))
-                        Text("of \(summary.includedRequests) included")
+                        Text("of \(tracker.config.monthlyBudget) included")
                             .font(.body)
                             .foregroundColor(.secondary)
                     }
                     
                     // Progress bar
-                    ProgressView(value: min(summary.includedPercentage, 100), total: 100)
+                    ProgressView(value: min(percentage, 100), total: 100)
                         .tint(statusColor(percentage: percentage))
                     
                     Text("Monthly limit resets in \(usage.daysUntilReset) days on \(usage.resetDateDescription)")
@@ -185,18 +188,20 @@ struct DetailedStatsView: View {
         let details = usage.modelBillingDetails()
         
         return VStack(alignment: .leading, spacing: 0) {
-            // Header row
+            // Header row - matches GitHub's columns plus multiplier
             HStack(spacing: 0) {
                 Text("Model")
-                    .frame(width: 150, alignment: .leading)
+                    .frame(width: 140, alignment: .leading)
+                Text("Multiplier")
+                    .frame(width: 72, alignment: .trailing)
                 Text("Included")
+                    .frame(width: 72, alignment: .trailing)
+                Text("Billed")
+                    .frame(width: 60, alignment: .trailing)
+                Text("Gross")
                     .frame(width: 80, alignment: .trailing)
                 Text("Billed")
-                    .frame(width: 70, alignment: .trailing)
-                Text("Gross")
-                    .frame(width: 70, alignment: .trailing)
-                Text("Billed")
-                    .frame(width: 70, alignment: .trailing)
+                    .frame(width: 80, alignment: .trailing)
             }
             .font(.caption.bold())
             .foregroundColor(.secondary)
@@ -207,15 +212,17 @@ struct DetailedStatsView: View {
             // Second header row (sub-labels)
             HStack(spacing: 0) {
                 Text("")
-                    .frame(width: 150, alignment: .leading)
+                    .frame(width: 140, alignment: .leading)
+                Text("")
+                    .frame(width: 72, alignment: .trailing)
                 Text("requests")
+                    .frame(width: 72, alignment: .trailing)
+                Text("requests")
+                    .frame(width: 60, alignment: .trailing)
+                Text("amount")
                     .frame(width: 80, alignment: .trailing)
-                Text("requests")
-                    .frame(width: 70, alignment: .trailing)
                 Text("amount")
-                    .frame(width: 70, alignment: .trailing)
-                Text("amount")
-                    .frame(width: 70, alignment: .trailing)
+                    .frame(width: 80, alignment: .trailing)
             }
             .font(.caption2)
             .foregroundColor(.secondary)
@@ -229,21 +236,26 @@ struct DetailedStatsView: View {
             ForEach(details) { detail in
                 HStack(spacing: 0) {
                     Text(detail.model)
-                        .frame(width: 150, alignment: .leading)
+                        .frame(width: 140, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     
+                    // Multiplier with color coding
+                    Text(CopilotModelMultipliers.formatMultiplier(detail.multiplier))
+                        .frame(width: 72, alignment: .trailing)
+                        .foregroundColor(multiplierColor(detail.multiplier))
+                    
                     Text(formatQuantity(detail.includedRequests))
-                        .frame(width: 80, alignment: .trailing)
+                        .frame(width: 72, alignment: .trailing)
                     
                     Text(formatQuantity(detail.billedRequests))
-                        .frame(width: 70, alignment: .trailing)
+                        .frame(width: 60, alignment: .trailing)
                     
                     Text(currency(detail.grossAmount))
-                        .frame(width: 70, alignment: .trailing)
+                        .frame(width: 80, alignment: .trailing)
                     
                     Text(currency(detail.billedAmount))
-                        .frame(width: 70, alignment: .trailing)
+                        .frame(width: 80, alignment: .trailing)
                         .fontWeight(detail.billedAmount > 0 ? .semibold : .regular)
                 }
                 .font(.body.monospacedDigit())
@@ -258,19 +270,22 @@ struct DetailedStatsView: View {
                 HStack(spacing: 0) {
                     Text("Total")
                         .fontWeight(.semibold)
-                        .frame(width: 150, alignment: .leading)
+                        .frame(width: 140, alignment: .leading)
+                    
+                    Text("")
+                        .frame(width: 72, alignment: .trailing)
                     
                     Text(formatQuantity(details.reduce(0) { $0 + $1.includedRequests }))
-                        .frame(width: 80, alignment: .trailing)
+                        .frame(width: 72, alignment: .trailing)
                     
                     Text(formatQuantity(details.reduce(0) { $0 + $1.billedRequests }))
-                        .frame(width: 70, alignment: .trailing)
+                        .frame(width: 60, alignment: .trailing)
                     
                     Text(currency(details.reduce(0) { $0 + $1.grossAmount }))
-                        .frame(width: 70, alignment: .trailing)
+                        .frame(width: 80, alignment: .trailing)
                     
                     Text(currency(details.reduce(0) { $0 + $1.billedAmount }))
-                        .frame(width: 70, alignment: .trailing)
+                        .frame(width: 80, alignment: .trailing)
                         .fontWeight(.semibold)
                 }
                 .font(.body.monospacedDigit())
@@ -285,6 +300,20 @@ struct DetailedStatsView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
         )
+    }
+    
+    private func multiplierColor(_ multiplier: Double) -> Color {
+        if multiplier == 0 {
+            return .green
+        } else if multiplier < 1 {
+            return .blue
+        } else if multiplier == 1 {
+            return .primary
+        } else if multiplier <= 3 {
+            return .orange
+        } else {
+            return .red
+        }
     }
     
     // MARK: - Daily Usage Chart
@@ -315,55 +344,76 @@ struct DetailedStatsView: View {
     // MARK: - Model Pricing Section
     
     private func modelPricingSection(usage: UsageResponse) -> some View {
-        let modelPrices = Dictionary(grouping: usage.usageItems, by: \.model)
-            .compactMapValues { $0.first?.pricePerUnit }
+        let details = usage.modelBillingDetails()
         
-        let cheapestPrice = modelPrices.values.min() ?? 1.0
-        let sortedPrices = modelPrices.sorted { lhs, rhs in
-            if lhs.value != rhs.value { return lhs.value > rhs.value }
-            return lhs.key < rhs.key
-        }
-
         return VStack(alignment: .leading, spacing: 10) {
-            Text("Model Pricing")
+            Text("Model Multipliers")
                 .font(.headline)
             
-            if usage.allModelsSamePrice {
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.blue)
-                    Text("All models billed at \(currency(usage.pricePerRequest)) per premium request.")
-                        .foregroundColor(.secondary)
-                }
+            Text("Each model has a multiplier that determines how many premium requests it consumes. For example, Claude Opus (3x) uses 3 premium requests per interaction.")
                 .font(.subheadline)
-            } else {
-                Text("Models have different pricing. Cost factor is relative to the cheapest model.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                .foregroundColor(.secondary)
+            
+            // Model multiplier legend
+            HStack(spacing: 16) {
+                multiplierLegendItem(label: "Included", color: .green, description: "Free on paid plans")
+                multiplierLegendItem(label: "< 1x", color: .blue, description: "Discounted")
+                multiplierLegendItem(label: "1x", color: .primary, description: "Standard")
+                multiplierLegendItem(label: "> 1x", color: .orange, description: "Premium")
             }
+            .font(.caption)
+            .padding(.vertical, 4)
 
-            ForEach(sortedPrices, id: \.key) { model, unitPrice in
-                let factor = cheapestPrice > 0 ? unitPrice / cheapestPrice : 1.0
+            ForEach(details) { detail in
                 HStack {
-                    Text(model)
+                    Text(detail.model)
                     Spacer()
-                    if !usage.allModelsSamePrice {
-                        Text(String(format: "%.1fx", factor))
-                            .font(.body.monospacedDigit())
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(factor > 1 ? Color.orange.opacity(0.2) : Color.green.opacity(0.2))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                    Text(currency(unitPrice))
+                    
+                    // Multiplier badge
+                    Text(CopilotModelMultipliers.formatMultiplier(detail.multiplier))
+                        .font(.body.monospacedDigit().bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(multiplierBadgeColor(detail.multiplier))
+                        .foregroundColor(detail.multiplier == 0 ? .white : (detail.multiplier > 1 ? .white : .primary))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    
+                    Text(currency(detail.pricePerUnit))
                         .foregroundColor(.secondary)
                         .font(.body.monospacedDigit())
+                        .frame(width: 60, alignment: .trailing)
                     Text("/ request")
                         .foregroundColor(.secondary)
                         .font(.caption)
                 }
                 .padding(.vertical, 4)
             }
+        }
+    }
+    
+    private func multiplierLegendItem(label: String, color: Color, description: String) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .fontWeight(.medium)
+            Text("- \(description)")
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private func multiplierBadgeColor(_ multiplier: Double) -> Color {
+        if multiplier == 0 {
+            return .green
+        } else if multiplier < 1 {
+            return .blue.opacity(0.2)
+        } else if multiplier == 1 {
+            return Color(nsColor: .controlBackgroundColor)
+        } else if multiplier <= 3 {
+            return .orange
+        } else {
+            return .red
         }
     }
     

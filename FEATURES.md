@@ -4,7 +4,7 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.4
+## Version: 1.0.5
 ## Last Updated: 2026-03-28
 
 ---
@@ -162,7 +162,10 @@
 - Daily usage bar chart
 - Model breakdown pie chart (SectorMark)
 - **Detailed model billing table** with columns: Model, Included requests, Billed requests, Gross amount, Billed amount
-- **Per-model billing breakdown** calculated from API data (included = grossQuantity - netQuantity, billed = netQuantity)
+- **Model multiplier column** in the breakdown table showing the Copilot premium request multiplier per model (e.g., Claude Opus 4.5 = 3x, Haiku = 0.33x, GPT-4o = Included)
+- **Premium requests consumed** column showing actual quota deduction (raw requests × multiplier)
+- `CopilotModelMultipliers` lookup table with direct and fuzzy matching for all known Copilot models
+- **Total premium requests consumed** billing card uses multiplier-adjusted totals for accurate quota tracking
 - Model pricing details reflect GitHub billing unit prices directly and only show meaningful relative factors when prices differ
 - **Billing period information** showing date range and days until reset
 - Price per premium request display ($0.04)
@@ -297,6 +300,13 @@ struct ModelUsage: Identifiable {
 - F006: Manual refresh no longer triggers per-percent milestone notifications
 - F008: Restored stable settings padding and checkbox-column alignment
 - F008/F013: Pressing Escape closes open app windows
+
+### 1.0.5 (2026-03-28)
+- F013: Added model multiplier column (informational, from GitHub Copilot docs)
+- F013: Fixed billing card to match GitHub's "Included premium requests consumed" (uses raw grossQuantity, not multiplier-adjusted)
+- F013: Restored Gross amount / Billed amount columns to match GitHub's web UI
+- F013: Fixed window initial/minimum size to prevent left-edge clipping (700→820 initial, 600→750 min)
+- F013: Fixed hosting controller sizing (preferredContentSize + sizingOptions)
 
 ### 1.0.4 (2026-03-28)
 - F013: Enhanced Detailed Statistics view with comprehensive billing information

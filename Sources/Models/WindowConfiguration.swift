@@ -72,8 +72,8 @@ struct SettingsAlertConfiguration {
 }
 
 struct DetailedStatsWindowConfiguration {
-    static let initialSize = CGSize(width: 700, height: 600)
-    static let minSize = CGSize(width: 600, height: 500)
+    static let initialSize = CGSize(width: 820, height: 700)
+    static let minSize = CGSize(width: 750, height: 550)
     static let styleMask: NSWindow.StyleMask = [.titled, .closable, .resizable]
     static let escapeKeyClosesWindow = true
 }

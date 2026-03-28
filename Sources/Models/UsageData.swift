@@ -104,12 +104,113 @@ struct BillingSummary: Equatable {
 struct ModelBillingDetail: Identifiable {
     let id = UUID()
     let model: String
-    let totalRequests: Double       // Total requests for this model
+    let totalRequests: Double       // Total requests (grossQuantity, already multiplier-adjusted by API)
     let includedRequests: Double    // Requests covered by plan
     let billedRequests: Double      // Overage requests
     let grossAmount: Double         // What it would cost at full price
     let billedAmount: Double        // Actually charged (netAmount)
     let pricePerUnit: Double        // Price per request for this model
+    let multiplier: Double          // Informational: Copilot premium request multiplier for this model
+}
+
+/// GitHub Copilot model multipliers for premium request billing
+/// Reference: https://docs.github.com/en/copilot/concepts/billing/copilot-requests#model-multipliers
+enum CopilotModelMultipliers {
+    /// Known model multipliers from GitHub docs (for paid plans)
+    static let multipliers: [String: Double] = [
+        // Claude models
+        "Claude Haiku 4.5": 0.33,
+        "Claude Opus 4.5": 3.0,
+        "Claude Opus 4.6": 3.0,
+        "Claude Opus 4.6 (fast mode)": 30.0,
+        "Claude Sonnet 4": 1.0,
+        "Claude Sonnet 4.5": 1.0,
+        "Claude Sonnet 4.6": 1.0,
+        
+        // Gemini models
+        "Gemini 2.5 Pro": 1.0,
+        "Gemini 3 Flash": 0.33,
+        "Gemini 3 Pro": 1.0,
+        "Gemini 3.1 Pro": 1.0,
+        
+        // GPT models (included/free on paid plans)
+        "GPT-4.1": 0.0,
+        "GPT-4o": 0.0,
+        "GPT-5 mini": 0.0,
+        "GPT-5.1": 1.0,
+        "GPT-5.1-Codex": 1.0,
+        "GPT-5.1-Codex-Mini": 0.33,
+        "GPT-5.1-Codex-Max": 1.0,
+        "GPT-5.2": 1.0,
+        "GPT-5.2-Codex": 1.0,
+        "GPT-5.3-Codex": 1.0,
+        "GPT-5.4": 1.0,
+        "GPT-5.4 mini": 0.33,
+        
+        // Other models
+        "Grok Code Fast 1": 0.25,
+        "Raptor mini": 0.0,
+    ]
+    
+    /// Get multiplier for a model name (supports partial matching)
+    static func multiplier(for modelName: String) -> Double {
+        // Direct match
+        if let mult = multipliers[modelName] {
+            return mult
+        }
+        
+        // Partial match (case-insensitive)
+        let lowercased = modelName.lowercased()
+        
+        // Claude models
+        if lowercased.contains("opus") {
+            if lowercased.contains("fast") {
+                return 30.0
+            }
+            return 3.0
+        }
+        if lowercased.contains("sonnet") {
+            return 1.0
+        }
+        if lowercased.contains("haiku") {
+            return 0.33
+        }
+        
+        // GPT models - check for included models
+        if lowercased.contains("gpt-4o") || lowercased.contains("gpt-4.1") || lowercased.contains("gpt-5 mini") {
+            return 0.0
+        }
+        if lowercased.contains("gpt-5") {
+            if lowercased.contains("mini") {
+                return 0.33
+            }
+            return 1.0
+        }
+        
+        // Gemini models
+        if lowercased.contains("gemini") {
+            if lowercased.contains("flash") {
+                return 0.33
+            }
+            return 1.0
+        }
+        
+        // Default to 1.0 for unknown models
+        return 1.0
+    }
+    
+    /// Format multiplier for display
+    static func formatMultiplier(_ multiplier: Double) -> String {
+        if multiplier == 0 {
+            return "Included"
+        } else if multiplier < 1 {
+            return String(format: "%.2fx", multiplier)
+        } else if multiplier == floor(multiplier) {
+            return String(format: "%.0fx", multiplier)
+        } else {
+            return String(format: "%.1fx", multiplier)
+        }
+    }
 }
 
 extension UsageResponse {
@@ -236,6 +337,7 @@ extension UsageResponse {
             let grossAmount = items.reduce(0.0) { $0 + $1.grossAmount }
             let billedAmount = items.reduce(0.0) { $0 + $1.netAmount }
             let pricePerUnit = items.first?.pricePerUnit ?? 0.04
+            let multiplier = CopilotModelMultipliers.multiplier(for: model)
             
             details.append(ModelBillingDetail(
                 model: model,
@@ -244,7 +346,8 @@ extension UsageResponse {
                 billedRequests: billedRequests,
                 grossAmount: grossAmount,
                 billedAmount: billedAmount,
-                pricePerUnit: pricePerUnit
+                pricePerUnit: pricePerUnit,
+                multiplier: multiplier
             ))
         }
         
