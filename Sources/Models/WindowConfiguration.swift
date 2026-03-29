@@ -69,6 +69,7 @@ struct SettingsViewConfiguration {
     static let hiddenTokenMask = "••••••••••••"
     static let authorHandle = "matlockx"
     static let authorURL = "https://github.com/matlockx/copilot-accountant"
+    static let githubBudgetURL = "https://github.com/settings/billing/budgets"
 }
 
 struct SettingsAlertConfiguration {

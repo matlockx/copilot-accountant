@@ -197,14 +197,30 @@ struct SettingsView: View {
                                 gridLabel("Dollar Budget")
                                 trailingControlRow {
                                     HStack(spacing: SettingsViewConfiguration.formFieldSpacing) {
-                                    Text("$")
-                                        .foregroundColor(.secondary)
-                                    TextField("0.00", text: $dollarBudget)
-                                        .textFieldStyle(.roundedBorder)
-                                        .frame(width: SettingsViewConfiguration.valueFieldWidth)
-                                        .multilineTextAlignment(.trailing)
-                                    Text("/ month")
-                                        .foregroundColor(.secondary)
+                                        Text("$")
+                                            .foregroundColor(.secondary)
+                                        TextField("0.00", text: $dollarBudget)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: SettingsViewConfiguration.valueFieldWidth)
+                                            .multilineTextAlignment(.trailing)
+                                        Text("/ month")
+                                            .foregroundColor(.secondary)
+                                        Button {
+                                            if let url = URL(string: SettingsViewConfiguration.githubBudgetURL) {
+                                                NSWorkspace.shared.open(url)
+                                            }
+                                        } label: {
+                                            HStack(spacing: 2) {
+                                                Text("Set on GitHub")
+                                                Image(systemName: "arrow.up.right")
+                                                    .font(.system(size: 9, weight: .medium))
+                                            }
+                                            .font(.system(size: 11))
+                                        }
+                                        .buttonStyle(.link)
+                                        .onHover { hovering in
+                                            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+                                        }
                                     }
                                 }
                             }

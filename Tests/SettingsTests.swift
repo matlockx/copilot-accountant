@@ -114,6 +114,11 @@ struct SettingsTests {
             test.assertEqual(SettingsViewConfiguration.authorURL, "https://github.com/matlockx/copilot-accountant", "Footer links to the project repository")
             test.assertTrue(URL(string: SettingsViewConfiguration.authorURL) != nil, "Author URL is a valid URL")
         }
+
+        test.run("test_Settings_DollarBudget_HasGitHubLink") {
+            test.assertEqual(SettingsViewConfiguration.githubBudgetURL, "https://github.com/settings/billing/budgets", "Dollar budget row links to GitHub billing budgets page")
+            test.assertTrue(URL(string: SettingsViewConfiguration.githubBudgetURL) != nil, "GitHub budget URL is a valid URL")
+        }
         
         test.printSummary()
     }
