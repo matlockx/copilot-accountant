@@ -68,7 +68,7 @@ struct SettingsViewConfiguration {
     static let escapeKeyClosesWindow = true
     static let hiddenTokenMask = "••••••••••••"
     static let authorHandle = "matlockx"
-    static let authorURL = "https://github.com/matlockx"
+    static let authorURL = "https://github.com/matlockx/copilot-accountant"
 }
 
 struct SettingsAlertConfiguration {

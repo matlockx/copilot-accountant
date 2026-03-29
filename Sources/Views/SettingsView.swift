@@ -339,6 +339,13 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Built by \(SettingsViewConfiguration.authorHandle) · \(SettingsViewConfiguration.authorURL)")
+                .onHover { hovering in
+                    if hovering {
+                        NSCursor.pointingHand.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
 
                 Spacer()
 
