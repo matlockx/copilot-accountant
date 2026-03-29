@@ -1,0 +1,11 @@
+{
+  "language": "swift",
+  "backend": {
+    "type": "beads",
+    "config": {
+      "workspaceDir": "/Users/martin/projects/copilot-accountant",
+      "beadsDir": "/Users/martin/projects/copilot-accountant/.beads",
+      "specsDir": "./specs"
+    }
+  }
+}
