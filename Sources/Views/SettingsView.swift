@@ -323,13 +323,19 @@ struct SettingsView: View {
                         NSWorkspace.shared.open(url)
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left.forwardslash.chevron.right")
-                            .font(.system(size: 10, weight: .medium))
+                    HStack(spacing: 5) {
+                        if let img = NSImage(contentsOfFile: Bundle.main.path(forResource: "matlockx", ofType: "png") ?? "") {
+                            Image(nsImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 16, height: 16)
+                                .clipShape(Circle())
+                                .opacity(0.6)
+                        }
                         Text(SettingsViewConfiguration.authorHandle)
                             .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundColor(.secondary.opacity(0.5))
+                    .foregroundColor(.secondary.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .help("Built by \(SettingsViewConfiguration.authorHandle) · \(SettingsViewConfiguration.authorURL)")

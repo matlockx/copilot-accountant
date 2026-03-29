@@ -30,6 +30,10 @@ cp Resources/Info.plist "${CONTENTS_DIR}/"
 echo "🎨 Copying app icon..."
 cp Resources/AppIcon.icns "${RESOURCES_DIR}/"
 
+# Copy author avatar
+echo "👤 Copying author avatar..."
+cp Resources/matlockx.png "${RESOURCES_DIR}/"
+
 # Create PkgInfo
 echo "APPL????" > "${CONTENTS_DIR}/PkgInfo"
 
