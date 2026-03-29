@@ -1,6 +1,27 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Colored progress bar
+// SwiftUI's ProgressView.tint() is unreliable inside NSPopover on macOS.
+// This custom view draws the bar explicitly with the given color.
+private struct ColoredBar: View {
+    let fraction: Double   // 0.0 – 1.0 (clamped)
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color(nsColor: .separatorColor).opacity(0.4))
+                Capsule()
+                    .fill(color)
+                    .frame(width: max(4, geo.size.width * min(fraction, 1.0)))
+            }
+        }
+        .frame(height: 5)
+    }
+}
+
 /// Main menu bar item and dropdown menu
 struct MenuBarView: View {
     @ObservedObject var tracker: UsageTracker
@@ -32,6 +53,13 @@ struct MenuBarView: View {
             } else {
                 Text("No data available")
                     .foregroundColor(.secondary)
+                    .padding()
+            }
+            
+            // Spending budget section (F019) — only shown when dollar budget is configured
+            if let budget = tracker.spendingBudget {
+                Divider()
+                spendingBudgetSection(budget: budget)
                     .padding()
             }
             
@@ -67,8 +95,10 @@ struct MenuBarView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
-                ProgressView(value: Double(used), total: Double(budget))
-                    .tint(statusColor(percentage: percentage))
+                ColoredBar(
+                    fraction: Double(used) / max(Double(budget), 1),
+                    color: statusColor(percentage: percentage)
+                )
             } else {
                 HStack {
                     Circle()
@@ -130,6 +160,79 @@ struct MenuBarView: View {
         }
     }
     
+    // F019: Spending budget summary section
+    private func spendingBudgetSection(budget: SpendingBudgetSummary) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Section label
+            HStack {
+                Image(systemName: "dollarsign.circle")
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
+                Text("Spending Budget")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+            }
+
+            // Dollar amount line
+            HStack {
+                Image(systemName: "chart.bar")
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
+                Text(String(format: "$%.2f / $%.2f budget", budget.amountSpent, budget.budgetAmount))
+                    .font(.caption)
+            }
+
+            // Progress bar
+            ColoredBar(
+                fraction: min(budget.percentUsed, 100) / 100,
+                color: spendingStatusColor(budget.percentUsed)
+            )
+            .padding(.leading, 20)
+
+            // Remaining amount
+            HStack {
+                Image(systemName: "arrow.right.circle")
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
+                Text(String(format: "$%.2f remaining", budget.remaining))
+                    .font(.caption)
+                    .foregroundColor(budget.isCapReached ? .red : .secondary)
+            }
+
+            // Billing context: billed vs included requests
+            if let usage = tracker.currentUsage {
+                let billedTotal = Int((usage.totalNetCost / max(usage.pricePerRequest, 0.0001)).rounded())
+                HStack(alignment: .top) {
+                    Image(systemName: billedTotal > 0 ? "exclamationmark.circle" : "checkmark.circle")
+                        .foregroundColor(billedTotal > 0 ? .orange : .green)
+                        .frame(width: 20)
+                    if billedTotal > 0 {
+                        Text("\(billedTotal) billed requests beyond included limit")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    } else {
+                        Text("All usage within included requests")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+        }
+    }
+
+    private func spendingStatusColor(_ percentUsed: Double) -> Color {
+        if percentUsed >= 90 {
+            return .red
+        } else if percentUsed >= 80 {
+            return .orange
+        } else if percentUsed >= 60 {
+            return .yellow
+        } else {
+            return .green
+        }
+    }
+
     private var actionsSection: some View {
         VStack(spacing: 0) {
             MenuButton("Detailed Statistics", icon: "chart.bar.fill") {

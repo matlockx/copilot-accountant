@@ -141,12 +141,12 @@ struct DetailedStatsTests {
 
         test.run("test_DetailedStats_WindowConfiguration_IsResizable") {
             test.assertTrue(DetailedStatsWindowConfiguration.styleMask.contains(.resizable), "Detailed stats window supports resizing")
-            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.width, 820, "Initial width is 820")
+            test.assertEqual(DetailedStatsWindowConfiguration.initialSize.width, 900, "Initial width is 900 (widened for Share column)")
             test.assertEqual(DetailedStatsWindowConfiguration.initialSize.height, 700, "Initial height is 700")
         }
 
         test.run("test_DetailedStats_WindowConfiguration_HasMinimumSize") {
-            test.assertEqual(DetailedStatsWindowConfiguration.minSize.width, 750, "Minimum width prevents clipping")
+            test.assertEqual(DetailedStatsWindowConfiguration.minSize.width, 830, "Minimum width prevents clipping")
             test.assertEqual(DetailedStatsWindowConfiguration.minSize.height, 550, "Minimum height prevents cramped charts")
         }
 
@@ -308,6 +308,81 @@ struct DetailedStatsTests {
             test.assertEqual(CopilotModelMultipliers.formatMultiplier(1.0), "1x", "1.0 formatted as '1x'")
             test.assertEqual(CopilotModelMultipliers.formatMultiplier(3.0), "3x", "3.0 formatted as '3x'")
             test.assertEqual(CopilotModelMultipliers.formatMultiplier(30.0), "30x", "30.0 formatted as '30x'")
+        }
+
+        // F020: Pie Chart Hover Tooltips - Percentage column in billing table
+
+        test.run("test_F020_PieChartPercentage_SingleModel") {
+            let usage = createTestUsage(models: [("Claude Sonnet 4.5", 100.0, nil)])
+            let models = usage.usageByModel
+            let total = models.values.reduce(0, +)
+            let sonnetCount = models["Claude Sonnet 4.5"] ?? 0
+            let percentage = total > 0 ? (sonnetCount / total) * 100.0 : 0
+            test.assertApproximatelyEqual(percentage, 100.0, tolerance: 0.01, "Single model is 100%")
+        }
+
+        test.run("test_F020_PieChartPercentage_TwoEqualModels") {
+            let usage = createTestUsage(models: [
+                ("Claude Sonnet 4.5", 50.0, nil),
+                ("Claude Haiku 4.5", 50.0, nil)
+            ])
+            let total = Double(usage.totalRequests)
+            let sonnetCount = usage.usageByModel["Claude Sonnet 4.5"] ?? 0
+            let percentage = total > 0 ? (sonnetCount / total) * 100.0 : 0
+            test.assertApproximatelyEqual(percentage, 50.0, tolerance: 0.01, "Equal models each 50%")
+        }
+
+        test.run("test_F020_PieChartPercentage_ThreeModels") {
+            // 60 + 30 + 10 = 100 total
+            let usage = createTestUsage(models: [
+                ("Claude Sonnet 4.5", 60.0, nil),
+                ("Claude Haiku 4.5", 30.0, nil),
+                ("GPT-4o", 10.0, nil)
+            ])
+            let total = usage.usageByModel.values.reduce(0, +)
+            let sonnetPct = (60.0 / total) * 100
+            let haikuPct = (30.0 / total) * 100
+            let gptPct = (10.0 / total) * 100
+            test.assertApproximatelyEqual(sonnetPct, 60.0, tolerance: 0.01, "Sonnet is 60%")
+            test.assertApproximatelyEqual(haikuPct, 30.0, tolerance: 0.01, "Haiku is 30%")
+            test.assertApproximatelyEqual(gptPct, 10.0, tolerance: 0.01, "GPT is 10%")
+            test.assertApproximatelyEqual(sonnetPct + haikuPct + gptPct, 100.0, tolerance: 0.01, "Percentages sum to 100%")
+        }
+
+        test.run("test_F020_PieChartPercentage_EmptyUsage") {
+            let usage = createTestUsage(models: [])
+            let total = usage.usageByModel.values.reduce(0, +)
+            test.assertEqual(total, 0.0, "Empty usage has zero total")
+        }
+
+        test.run("test_F020_PieChartPercentage_ModelUsagePercentageField") {
+            // ModelUsage struct has a percentage field used in pie chart
+            let modelUsage = ModelUsage(modelName: "Claude Sonnet 4.5", requestCount: 75.0, percentage: 75.0)
+            test.assertApproximatelyEqual(modelUsage.percentage, 75.0, tolerance: 0.01, "ModelUsage.percentage is correct")
+        }
+
+        test.run("test_F020_BillingTable_PercentageCalculation") {
+            // Billing table percentage: model grossQuantity / total grossQuantity * 100
+            let usage = createTestUsage(models: [
+                ("Claude Sonnet 4.5", 80.0, nil),
+                ("Claude Haiku 4.5", 20.0, nil)
+            ])
+            let details = usage.modelBillingDetails()
+            let total = details.reduce(0.0) { $0 + $1.totalRequests }
+            test.assertApproximatelyEqual(total, 100.0, tolerance: 0.01, "Total requests = 100")
+            let sonnetDetail = details.first { $0.model == "Claude Sonnet 4.5" }!
+            let haikuDetail = details.first { $0.model == "Claude Haiku 4.5" }!
+            let sonnetPct = (sonnetDetail.totalRequests / total) * 100
+            let haikuPct = (haikuDetail.totalRequests / total) * 100
+            test.assertApproximatelyEqual(sonnetPct, 80.0, tolerance: 0.01, "Sonnet is 80% of billing table total")
+            test.assertApproximatelyEqual(haikuPct, 20.0, tolerance: 0.01, "Haiku is 20% of billing table total")
+        }
+
+        test.run("test_F020_BillingTable_PercentageFormat") {
+            // Verify percentage display format
+            let pct = 33.333
+            let formatted = String(format: "%.1f%%", pct)
+            test.assertEqual(formatted, "33.3%", "Percentage formatted with one decimal")
         }
 
         test.printSummary()

@@ -166,28 +166,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem?.button,
               let tracker = tracker,
               let usage = tracker.currentUsage else {
+            // Fallback: cloud symbol + "--" when no data
+            statusItem?.button?.image = nil
             statusItem?.button?.title = "☁️ --"
             return
         }
         
         let used = usage.totalRequests
-        _ = tracker.config.monthlyBudget
         let percentage = tracker.config.usagePercentage(used: used)
-        
-        // Update text with emoji indicator
-        let emoji: String
-        switch tracker.config.statusColor(used: used) {
-        case .green:
-            emoji = "🟢"
-        case .yellow:
-            emoji = "🟡"
-        case .orange:
-            emoji = "🟠"
-        case .red:
-            emoji = "🔴"
+        let statusColor = tracker.config.statusColor(used: used)
+
+        // F021: Use Copilot icon tinted in status color
+        if let icon = CopilotMenuBarIcon.image(for: statusColor) {
+            button.image = icon
+            button.imagePosition = .imageLeft
         }
-        
-        button.title = String(format: "%@ %.1f%%", emoji, percentage)
+        button.title = String(format: " %.1f%%", percentage)
     }
     
     private func openSettings() {

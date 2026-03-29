@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// Configuration for budget and user settings
 struct BudgetConfig: Codable {
@@ -169,4 +170,14 @@ struct BudgetConfig: Codable {
 
 enum StatusColor {
     case green, yellow, orange, red
+
+    /// The corresponding NSColor for use in AppKit (e.g. menu bar icon tinting)
+    var nsColor: NSColor {
+        switch self {
+        case .green:  return .systemGreen
+        case .yellow: return .systemYellow
+        case .orange: return .systemOrange
+        case .red:    return .systemRed
+        }
+    }
 }

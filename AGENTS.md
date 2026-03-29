@@ -167,9 +167,10 @@ Tests/
 ├── FirstLaunchTests.swift        # F010
 ├── LoggingTests.swift            # F011
 ├── TokenHelpTests.swift          # F012
-├── DetailedStatsTests.swift      # F013
+├── DetailedStatsTests.swift      # F013, F020
 ├── ModelMultiplierServiceTests.swift  # F016, F017
-└── MenuBarTests.swift            # F001
+├── SpendingBudgetTests.swift     # F018
+└── MenuBarTests.swift            # F001, F019, F021
 ```
 
 ### Test Naming Convention
@@ -250,6 +251,9 @@ Sources/                   # Implementation
 | F016 | Dynamic Model Multipliers | ModelMultiplierServiceTests.swift |
 | F017 | All Models Catalog | ModelMultiplierServiceTests.swift |
 | F018 | Spending Budget Integration | SpendingBudgetTests.swift |
+| F019 | Enhanced Menu Bar Popup | MenuBarTests.swift |
+| F020 | Pie Chart Hover Tooltips | DetailedStatsTests.swift |
+| F021 | Copilot Menu Bar Icon | MenuBarTests.swift |
 
 ---
 

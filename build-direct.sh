@@ -59,6 +59,7 @@ SWIFT_FILES=(
     Sources/Views/SettingsView.swift
     Sources/Views/DetailedStatsView.swift
     Sources/App/AppDelegate.swift
+    Sources/App/CopilotMenuBarIcon.swift
     Sources/App/CopilotAccountantApp.swift
 )
 

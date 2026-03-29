@@ -39,6 +39,7 @@ SOURCE_FILES=(
     "Sources/Services/GitHubAPIService.swift"
     "Sources/Services/UsageTracker.swift"
     "Sources/Services/ModelMultiplierService.swift"
+    "Sources/App/CopilotMenuBarIcon.swift"
 )
 
 # Check if source files exist

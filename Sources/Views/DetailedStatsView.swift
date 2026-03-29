@@ -11,6 +11,8 @@ struct DetailedStatsView: View {
     @State private var multiplierUpdateSuccess = false
     @State private var hoveredDay: DailyUsage? = nil
     @State private var tooltipPosition: CGPoint = .zero
+    @State private var hoveredModel: ModelUsage? = nil
+    @State private var pieTooltipPosition: CGPoint = .zero
     @State private var multipliersURL: String = ModelMultiplierService.shared.multipliersURL
     
     var body: some View {
@@ -297,33 +299,110 @@ struct DetailedStatsView: View {
     
     private func modelPieChart() -> some View {
         let modelUsage = tracker.getModelUsage()
-        
-        return Chart(modelUsage) { item in
-            SectorMark(
-                angle: .value("Count", item.requestCount),
-                innerRadius: .ratio(0.5),
-                angularInset: 1
-            )
-            .foregroundStyle(by: .value("Model", item.modelName))
-            .annotation(position: .overlay) {
-                if item.percentage > 8 {
-                    Text(String(format: "%.0f%%", item.percentage))
-                        .font(.caption2.bold())
-                        .foregroundColor(.white)
+
+        return ZStack(alignment: .topLeading) {
+            Chart(modelUsage) { item in
+                SectorMark(
+                    angle: .value("Count", item.requestCount),
+                    innerRadius: .ratio(0.5),
+                    angularInset: 1
+                )
+                .foregroundStyle(by: .value("Model", item.modelName))
+                .opacity(hoveredModel == nil || hoveredModel?.id == item.id ? 1.0 : 0.4)
+                .annotation(position: .overlay) {
+                    if item.percentage > 8 && hoveredModel?.id != item.id {
+                        Text(String(format: "%.0f%%", item.percentage))
+                            .font(.caption2.bold())
+                            .foregroundColor(.white)
+                    }
                 }
             }
+            .chartLegend(.hidden)
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active(let location):
+                                pieTooltipPosition = location
+                                // Find which sector is hovered using angle from center
+                                let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+                                let dx = location.x - center.x
+                                let dy = location.y - center.y
+                                let distFromCenter = sqrt(dx * dx + dy * dy)
+                                let minRadius = min(geo.size.width, geo.size.height) / 2 * 0.5
+                                let maxRadius = min(geo.size.width, geo.size.height) / 2
+                                guard distFromCenter > minRadius && distFromCenter < maxRadius else {
+                                    hoveredModel = nil
+                                    return
+                                }
+                                // Angle: atan2 gives angle from positive X axis; chart starts at top (-π/2)
+                                var angle = atan2(dy, dx) + .pi / 2
+                                if angle < 0 { angle += 2 * .pi }
+                                let totalRequests = modelUsage.reduce(0) { $0 + $1.requestCount }
+                                guard totalRequests > 0 else { return }
+                                var cumulative = 0.0
+                                for model in modelUsage {
+                                    let slice = (model.requestCount / totalRequests) * 2 * .pi
+                                    cumulative += slice
+                                    if angle <= cumulative {
+                                        hoveredModel = model
+                                        return
+                                    }
+                                }
+                                hoveredModel = nil
+                            case .ended:
+                                hoveredModel = nil
+                            }
+                        }
+                }
+            }
+
+            // Tooltip card
+            if let hovered = hoveredModel {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(hovered.modelName)
+                        .font(.caption.bold())
+                        .lineLimit(2)
+                    Text(String(format: "%.0f requests", hovered.requestCount))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(String(format: "%.1f%%", hovered.percentage))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(nsColor: .windowBackgroundColor))
+                        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                )
+                .fixedSize()
+                .position(x: min(pieTooltipPosition.x + 12, 200), y: pieTooltipPosition.y - 10)
+                .allowsHitTesting(false)
+                .transition(.opacity.animation(.easeInOut(duration: 0.1)))
+            }
         }
-        .chartLegend(.hidden)
     }
     
     private func modelBillingTable(usage: UsageResponse) -> some View {
         let details = usage.modelBillingDetails()
-        
+        let totalRequests = details.reduce(0.0) { $0 + $1.totalRequests }
+
         return VStack(alignment: .leading, spacing: 0) {
             // Header row
             HStack(spacing: 0) {
                 Text("Model")
-                    .frame(width: 140, alignment: .leading)
+                    .frame(width: 130, alignment: .leading)
+                Text("Share")
+                    .frame(width: 50, alignment: .trailing)
                 Text("Multiplier")
                     .frame(width: 72, alignment: .trailing)
                 Text("Included")
@@ -344,7 +423,9 @@ struct DetailedStatsView: View {
             // Sub-labels
             HStack(spacing: 0) {
                 Text("")
-                    .frame(width: 140, alignment: .leading)
+                    .frame(width: 130, alignment: .leading)
+                Text("")
+                    .frame(width: 50, alignment: .trailing)
                 Text("")
                     .frame(width: 72, alignment: .trailing)
                 Text("requests")
@@ -366,11 +447,16 @@ struct DetailedStatsView: View {
             
             // Data rows
             ForEach(details) { detail in
+                let sharePct = totalRequests > 0 ? (detail.totalRequests / totalRequests) * 100 : 0
                 HStack(spacing: 0) {
                     Text(detail.model)
-                        .frame(width: 140, alignment: .leading)
+                        .frame(width: 130, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
+
+                    Text(String(format: "%.1f%%", sharePct))
+                        .frame(width: 50, alignment: .trailing)
+                        .foregroundColor(.secondary)
                     
                     Text(CopilotModelMultipliers.formatMultiplier(detail.multiplier))
                         .frame(width: 72, alignment: .trailing)
@@ -401,7 +487,11 @@ struct DetailedStatsView: View {
                 HStack(spacing: 0) {
                     Text("Total")
                         .fontWeight(.semibold)
-                        .frame(width: 140, alignment: .leading)
+                        .frame(width: 130, alignment: .leading)
+                    
+                    Text("100%")
+                        .frame(width: 50, alignment: .trailing)
+                        .foregroundColor(.secondary)
                     
                     Text("")
                         .frame(width: 72, alignment: .trailing)

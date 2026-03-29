@@ -4,8 +4,8 @@
 > Every feature listed here MUST have corresponding tests.  
 > Do NOT add features without updating this file and adding tests.
 
-## Version: 1.0.8
-## Last Updated: 2026-03-28
+## Version: 1.0.9
+## Last Updated: 2026-03-29
 
 ---
 
@@ -16,9 +16,9 @@
 **Tests:** `Tests/MenuBarTests.swift`
 
 - App runs as a menu bar utility (no dock icon)
-- Displays usage percentage with color-coded emoji indicator
-- **Shows one decimal place** (e.g., `🟢 28.7%` not `🟢 29%`)
-- Status indicators:
+- Displays usage percentage with color-coded icon indicator (F021)
+- **Shows one decimal place** (e.g., `[icon] 28.7%` not `[icon] 29%`)
+- Status indicators (via `StatusColor.nsColor` + `CopilotMenuBarIcon`):
   - 🟢 0-59% (Green/Safe)
   - 🟡 60-79% (Yellow/Moderate)  
   - 🟠 80-89% (Orange/High)
@@ -235,6 +235,41 @@
 - Note: GitHub's budget API (`/organizations/{org}/settings/billing/budgets`) is org-only;
   personal accounts set budgets via github.com/settings/billing but no user-level API exists
 
+### F019: Enhanced Menu Bar Popup
+**Status:** Implemented  
+**Tests:** `Tests/MenuBarTests.swift`
+
+- Adds spending budget summary to the menu bar popover when a dollar budget is configured
+- Shows dollar spending: "$X.XX / $Y.YY budget" with a compact progress bar
+- Shows remaining amount: "$Z.ZZ remaining"
+- Shows billing context line: "X billed requests beyond included limit" or "All usage within included requests"
+- Spending section appears between quick stats and action buttons, separated by a divider
+- Hidden when `dollarBudget` is 0 (disabled) — `tracker.spendingBudget` is `nil`
+- Uses `SpendingBudgetSummary` data from `tracker.spendingBudget`
+- Progress bar color matches budget percentage thresholds (green/yellow/orange/red)
+
+### F020: Pie Chart Hover Tooltips
+**Status:** Implemented  
+**Tests:** `Tests/DetailedStatsTests.swift`
+
+- Hovering over a pie chart sector shows a tooltip card with model name, request count, and percentage
+- Hovered sector highlights (full opacity) while others dim (0.4 opacity)
+- Tooltip follows cursor position with smooth animation
+- Percentage column added to the model billing table showing each model's share of total requests
+- Percentage is computed as `(model grossQuantity / total grossQuantity) * 100`
+
+### F021: Copilot Menu Bar Icon
+**Status:** Implemented  
+**Tests:** `Tests/MenuBarTests.swift`
+
+- Replaces emoji circle indicators (🟢🟡🟠🔴) with a GitHub Copilot-style icon drawn programmatically
+- Icon is an NSImage drawn with Core Graphics — a stylized copilot/robot face outline
+- Tinted in status colors: green (<60%), yellow (60-79%), orange (80-89%), red (>=90%)
+- Rendered with `isTemplate = false` so the status color is visible (not monochrome)
+- Percentage text displayed to the right of the icon (e.g., `[icon] 42.3%`)
+- Fallback: cloud SF Symbol with "--" when no data available
+- `StatusColor` gains `nsColor` computed property returning the corresponding `NSColor`
+
 ---
 
 ## Data Models
@@ -342,6 +377,20 @@ struct SpendingBudgetSummary: Equatable {
 ---
 
 ## Changelog
+
+### 1.0.9 (2026-03-29)
+- F019: Enhanced Menu Bar Popup — spending budget summary in the popover
+  - Dollar spent / budget with progress bar and remaining amount
+  - Billing context: billed requests beyond included limit or all within plan
+  - Hidden when no dollar budget is configured
+- F020: Pie Chart Hover Tooltips — hover model pie chart for details
+  - Tooltip shows model name, request count, percentage on hover
+  - Hovered sector highlights; others dim
+  - Percentage column added to model billing table
+- F021: Copilot Menu Bar Icon — replace emoji circles with drawn Copilot icon
+  - Programmatic NSImage (Core Graphics) copilot-style icon
+  - Tinted green/yellow/orange/red per usage status
+  - StatusColor gains nsColor property for NSColor mapping
 
 ### 1.0.8 (2026-03-28)
 - F018: Spending Budget Integration — user-configurable dollar spending budget
