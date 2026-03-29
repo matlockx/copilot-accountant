@@ -49,3 +49,11 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+
+# OpenCode
+.agent/state/       # workflow runtime state (issues, tasks, counters)
