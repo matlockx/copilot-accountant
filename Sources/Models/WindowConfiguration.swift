@@ -67,6 +67,8 @@ struct SettingsViewConfiguration {
     static let footerPresentation: FooterPresentationStyle = .safeAreaInsetBar
     static let escapeKeyClosesWindow = true
     static let hiddenTokenMask = "••••••••••••"
+    static let authorHandle = "matlockx"
+    static let authorURL = "https://github.com/matlockx"
 }
 
 struct SettingsAlertConfiguration {

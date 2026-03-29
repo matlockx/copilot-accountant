@@ -318,6 +318,22 @@ struct SettingsView: View {
             Divider()
 
             HStack {
+                Button {
+                    if let url = URL(string: SettingsViewConfiguration.authorURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left.forwardslash.chevron.right")
+                            .font(.system(size: 10, weight: .medium))
+                        Text(SettingsViewConfiguration.authorHandle)
+                            .font(.system(size: 11, weight: .regular))
+                    }
+                    .foregroundColor(.secondary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .help("Built by \(SettingsViewConfiguration.authorHandle) · \(SettingsViewConfiguration.authorURL)")
+
                 Spacer()
 
                 Button(SettingsViewConfiguration.footerButtonTitles[0]) {

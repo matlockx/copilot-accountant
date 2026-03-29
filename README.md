@@ -53,7 +53,7 @@ Full analytics window with billing breakdown, spending budget, and interactive m
 ### Quick Install (Recommended)
 
 ```bash
-git clone https://github.com/yourusername/copilot-accountant.git
+git clone https://github.com/matlockx/copilot-accountant.git
 cd copilot-accountant
 ./build-direct.sh release
 sudo ./install.sh
@@ -65,7 +65,7 @@ This builds the app and installs it to `/Applications/CopilotAccountant.app`.
 
 1. Clone and build:
    ```bash
-   git clone https://github.com/yourusername/copilot-accountant.git
+   git clone https://github.com/matlockx/copilot-accountant.git
    cd copilot-accountant
    ./build-direct.sh release
    ```

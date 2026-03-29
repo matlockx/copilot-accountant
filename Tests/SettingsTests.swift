@@ -108,6 +108,12 @@ struct SettingsTests {
             test.assertTrue(SettingsViewConfiguration.escapeKeyClosesWindow, "Settings window closes with Escape")
             test.assertTrue(DetailedStatsWindowConfiguration.escapeKeyClosesWindow, "Detailed stats window closes with Escape")
         }
+
+        test.run("test_Settings_Footer_ShowsAuthorCredit") {
+            test.assertEqual(SettingsViewConfiguration.authorHandle, "matlockx", "Footer credits the correct GitHub handle")
+            test.assertEqual(SettingsViewConfiguration.authorURL, "https://github.com/matlockx", "Footer links to the author's GitHub profile")
+            test.assertTrue(URL(string: SettingsViewConfiguration.authorURL) != nil, "Author URL is a valid URL")
+        }
         
         test.printSummary()
     }
