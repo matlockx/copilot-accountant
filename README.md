@@ -6,86 +6,71 @@ A native macOS menu bar app that tracks your GitHub Copilot premium request usag
 ![Swift](https://img.shields.io/badge/Swift-6.0+-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## Screenshots
+
+### Menu Bar Popup
+
+Quick overview of your usage, spending budget, and top model — one click away from the menu bar.
+
+![Menu Bar Popup](docs/screenshot-menu.png)
+
+### Detailed Statistics
+
+Full analytics window with billing breakdown, spending budget, and interactive model usage pie chart.
+
+![Detailed Statistics](docs/screenshot-stats.png)
+
 ## Features
 
-- **Real-time Usage Tracking**: Monitor your premium request consumption as a percentage in the menu bar
-- **Color-coded Status**: Visual indicators (🟢🟡🟠🔴) based on your usage level
-- **Detailed Statistics**: 
-  - Daily usage charts for the current month
-  - Breakdown by AI model (Claude Opus, GPT-4, etc.)
-  - Breakdown by product (Chat, CLI, etc.)
-- **Budget Alerts**: Notifications at 80% and 90% usage thresholds
+- **Copilot Icon in Menu Bar**: Color-coded Copilot visor icon reflects your current usage status at a glance
+- **Real-time Usage Tracking**: Current premium requests consumed vs. your monthly limit, with percentage and color-coded progress bar
+- **Spending Budget**: Tracks dollar spend against your configured budget — shown in both the popup and the detailed stats window
+- **Model Usage Breakdown**: Interactive pie chart + billing table showing each model's share, multiplier, included requests, billed requests, gross amount, and billed amount
+- **Detailed Statistics Window**: Full analytics with billing cards, spending budget card, and usage breakdown by model
+- **Budget Alerts**: macOS notifications at 80% and 90% usage thresholds
 - **Automatic Polling**: Checks GitHub API every 5 minutes (configurable)
 - **Secure Token Storage**: GitHub token safely stored in macOS Keychain
 - **Persistent Cache**: Usage data cached locally for offline viewing
 
-## Screenshots
+### Color-coded Status
 
-### Menu Bar Display
-Shows usage percentage with color-coded status indicator.
-
-### Dropdown Menu
-Quick stats with:
-- Current usage / budget
-- Days until monthly reset
-- Top model used
-- Quick actions
-
-### Detailed Statistics Window
-- Daily usage chart
-- Model usage breakdown (pie chart)
-- Product usage breakdown
-
-### Settings
-- GitHub username and token configuration
-- Monthly budget customization
-- Polling interval adjustment
-- Notification preferences
+| Color | Threshold | Meaning |
+|-------|-----------|---------|
+| Green | 0–59% | Safe |
+| Yellow | 60–79% | Moderate |
+| Orange | 80–89% | High |
+| Red | 90%+ | Critical |
 
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
 - GitHub account with Copilot subscription
-- GitHub Personal Access Token
-- Swift 6.0+ (included with Command Line Tools)
+- GitHub Personal Access Token with "Plan" read access
+- Swift 6.0+ (included with Xcode Command Line Tools)
 
 ## Installation
 
-### Quick Build (No Xcode Required!)
+### Quick Install (Recommended)
 
-1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/copilot-accountant.git
+cd copilot-accountant
+./build-direct.sh release
+sudo ./install.sh
+```
+
+This builds the app and installs it to `/Applications/CopilotAccountant.app`.
+
+### Manual Build
+
+1. Clone and build:
    ```bash
    git clone https://github.com/yourusername/copilot-accountant.git
    cd copilot-accountant
-   ```
-
-2. Build using the direct compiler:
-   ```bash
    ./build-direct.sh release
    ```
 
-3. Run the app:
-   ```bash
-   .build/release/CopilotAccountant
-   ```
-
-### Alternative: Build with Xcode
-
-1. Open in Xcode:
-   ```bash
-   open Package.swift
-   ```
-
-2. Build and run (Cmd+R)
-
-### Creating a Standalone App
-
-1. Build for release:
-   ```bash
-   ./build-direct.sh release
-   ```
-
-2. Create app bundle:
+2. Create the app bundle and move to Applications:
    ```bash
    mkdir -p CopilotAccountant.app/Contents/{MacOS,Resources}
    cp .build/release/CopilotAccountant CopilotAccountant.app/Contents/MacOS/
@@ -93,12 +78,12 @@ Quick stats with:
    chmod +x CopilotAccountant.app/Contents/MacOS/CopilotAccountant
    mv CopilotAccountant.app /Applications/
    ```
-   
-2. Move the app to your Applications folder
 
 3. (Optional) Add to Login Items:
    - System Settings → General → Login Items
    - Or enable "Launch at Login" in app settings
+
+> **Note**: No Xcode required. The app builds with `swiftc` directly via `build-direct.sh`.
 
 ## Setup
 
@@ -108,184 +93,119 @@ Quick stats with:
 2. Click "Generate new token"
 3. Give it a descriptive name (e.g., "Copilot Accountant")
 4. Set expiration as desired
-5. Under "Account permissions", find "Plan" and set it to "Read-only"
+5. Under "Account permissions", find **"Plan"** and set it to **"Read-only"**
 6. Click "Generate token"
-7. **Copy the token immediately** (you won't see it again!)
+7. **Copy the token immediately** — you won't see it again
+
+> Classic tokens (with scopes like `read:user`) will **not** work. You must use a fine-grained token with "Plan" access.
 
 ### 2. Configure the App
 
-1. Launch Copilot Accountant
-2. Click the menu bar icon
-3. Click "Settings"
-4. Enter your:
-   - **GitHub Username**: Your GitHub username
-   - **Personal Access Token**: Paste the token you just created
-5. Click "Save Token"
-6. Click "Validate" to test the connection
-7. Adjust your settings:
-   - **Monthly Budget**: Default is 300 requests (adjust if you have a different plan)
-   - **Polling Interval**: How often to check for updates (default 5 minutes)
+1. Launch Copilot Accountant from your Applications folder
+2. Click the Copilot icon in the menu bar
+3. Click **Settings**
+4. Enter your **GitHub Username** and paste your **Personal Access Token**
+5. Click **Save Token**, then **Validate** to test the connection
+6. Adjust your settings:
+   - **Monthly Budget**: Default is 300 requests — adjust for your plan
+   - **Dollar Budget**: Optional spending cap (shown in the popup and stats window)
+   - **Polling Interval**: How often to check for updates (default: 5 minutes)
    - **Notifications**: Toggle alerts at 80% and 90%
-8. Click "Save"
+7. Click **Save**
 
 ### 3. Understanding Your Plan
 
-Different Copilot plans have different premium request budgets:
+| Plan | Premium Requests/Month |
+|------|----------------------|
+| Copilot Free | Limited |
+| Copilot Pro | 300 |
+| Copilot Pro+ | Higher limit |
+| Copilot Business/Enterprise | Varies |
 
-- **Copilot Free**: Limited requests per month
-- **Copilot Pro**: 300 premium requests/month (default)
-- **Copilot Pro+**: Higher limit
-- **Copilot Business/Enterprise**: Varies by organization
-
-Check your plan at [github.com/settings/billing](https://github.com/settings/billing)
-
-## Usage
-
-### Menu Bar Icon
-
-The menu bar shows your current usage as a percentage with a color indicator:
-- 🟢 Green: 0-59% used (safe)
-- 🟡 Yellow: 60-79% used (moderate)
-- 🟠 Orange: 80-89% used (high)
-- 🔴 Red: 90-100% used (critical)
-
-### Dropdown Menu
-
-Click the menu bar icon to see:
-- Current usage details
-- Days until monthly reset (1st of each month)
-- Last update time
-- Quick access to:
-  - Detailed Statistics
-  - Refresh Now
-  - Settings
-  - Quit
-
-### Detailed Statistics
-
-Click "Detailed Statistics" to open a window with:
-- **Daily Usage Chart**: Bar chart showing requests per day
-- **Model Breakdown**: Pie chart of which AI models you've used
-- **Product Breakdown**: List of Copilot features you've used
-
-### Notifications
-
-The app sends macOS notifications when:
-- You reach 80% of your budget
-- You reach 90% of your budget
-- Your budget will reset tomorrow
+Check your current plan and usage at [github.com/settings/billing](https://github.com/settings/billing).
 
 ## Troubleshooting
 
 ### "No data available"
-
 - Check that your username and token are correct in Settings
-- Click "Validate" to test your connection
+- Click **Validate** to test your connection
 - Ensure your GitHub account has an active Copilot subscription
-- Check your internet connection
 
 ### "Token validation failed"
-
-- Verify your token has the correct permissions (needs "Plan" read access)
-- Try regenerating your token on GitHub
-- Make sure you copied the entire token without extra spaces
-- Ensure you're using a fine-grained token (not classic token)
+- Verify your token has **"Plan" read** permission (fine-grained token, not classic)
+- Try regenerating the token on GitHub
+- Make sure you copied the full token without leading/trailing spaces
 
 ### "Failed to fetch usage data"
+- GitHub API may be temporarily unavailable — check [githubstatus.com](https://www.githubstatus.com/)
+- You may have hit the API rate limit (unlikely with default 5-minute polling)
 
-- GitHub API may be temporarily unavailable
-- You might have hit the API rate limit (unlikely with default 5-minute polling)
-- Check [GitHub Status](https://www.githubstatus.com/)
+## API
 
-### High CPU usage
-
-- Increase the polling interval in Settings (e.g., 10 or 15 minutes)
-- The app only fetches data periodically, so CPU usage should be minimal
-
-## API Information
-
-This app uses the GitHub REST API endpoint:
+This app uses the GitHub REST API:
 ```
 GET /users/{username}/settings/billing/premium_request/usage
 ```
 
-API documentation: [GitHub Billing Usage API](https://docs.github.com/en/rest/billing/usage)
-
-> **Note**: This endpoint requires a fine-grained personal access token with "Plan" read access. Classic tokens (with scopes like `read:user`) will not work.
+See [GitHub Billing Usage API docs](https://docs.github.com/en/rest/billing/usage) for details.
 
 ## Privacy & Security
 
-- Your GitHub token is stored securely in the macOS Keychain
-- All API requests are made directly from your computer to GitHub (no third-party servers)
-- Usage data is cached locally on your machine
-- No telemetry or analytics are collected by this app
+- Your GitHub token is stored in the **macOS Keychain** — never in plain text
+- All API requests go directly from your Mac to GitHub — no third-party servers
+- Usage data is cached locally; nothing leaves your machine
+- No telemetry or analytics
 
 ## Technical Details
 
 - **Language**: Swift 6.0+
-- **Framework**: SwiftUI
+- **Frameworks**: SwiftUI, Swift Charts, AppKit
 - **Platform**: macOS 14.0+ (Sonoma)
-- **Architecture**: Native macOS menu bar application
+- **Build system**: Direct `swiftc` compilation (no SPM or Xcode required)
 - **Storage**: UserDefaults (config/cache) + Keychain (token)
-- **Charts**: Swift Charts framework (SectorMark requires macOS 14.0)
 
 ## Project Structure
 
 ```
-CopilotAccountant/
+copilot-accountant/
 ├── Sources/
 │   ├── App/
-│   │   ├── CopilotAccountantApp.swift    # Main app entry point
-│   │   └── AppDelegate.swift             # Menu bar management
+│   │   ├── CopilotAccountantApp.swift      # App entry point
+│   │   ├── AppDelegate.swift               # Menu bar management
+│   │   └── CopilotMenuBarIcon.swift        # Programmatic menu bar icon
 │   ├── Models/
-│   │   ├── UsageData.swift               # Usage response models
-│   │   └── BudgetConfig.swift            # Configuration model
+│   │   ├── UsageData.swift                 # API response models
+│   │   ├── BudgetConfig.swift              # Configuration + status colors
+│   │   └── WindowConfiguration.swift      # Window size constants
 │   ├── Services/
-│   │   ├── GitHubAPIService.swift        # API client
-│   │   ├── KeychainService.swift         # Secure token storage
-│   │   ├── NotificationService.swift     # System notifications
-│   │   └── UsageTracker.swift            # Main tracking logic
+│   │   ├── GitHubAPIService.swift          # API client
+│   │   ├── KeychainService.swift           # Secure token storage
+│   │   ├── ModelMultiplierService.swift    # Dynamic model multipliers
+│   │   ├── NotificationService.swift       # macOS notifications
+│   │   └── UsageTracker.swift              # Core tracking logic
 │   └── Views/
-│       ├── MenuBarView.swift             # Dropdown menu UI
-│       ├── DetailedStatsView.swift       # Statistics window
-│       └── SettingsView.swift            # Settings window
-└── Package.swift                          # Swift Package Manager manifest
+│       ├── MenuBarView.swift               # Menu bar popup UI
+│       ├── DetailedStatsView.swift         # Statistics window
+│       └── SettingsView.swift              # Settings window
+├── Tests/                                  # Test suite (529 tests)
+├── build-direct.sh                         # Build script
+├── run-tests.sh                            # Test runner
+├── install.sh                              # Install to /Applications
+└── FEATURES.md                             # Feature specification
 ```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please submit a Pull Request.
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Future Enhancements
-
-- [ ] Export usage data to CSV
-- [ ] Weekly/monthly usage reports
-- [ ] Multiple account support
-- [ ] Custom alert thresholds
-- [ ] Menubar text customization
-- [ ] Dark mode icon variants
-- [ ] Historical usage trends (multiple months)
-- [ ] Sparkle auto-update integration
+2. Create your feature branch: `git checkout -b feature/my-feature`
+3. Run tests before committing: `./run-tests.sh`
+4. Commit your changes and open a Pull Request
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Acknowledgments
-
-- Built with SwiftUI and Swift Charts
-- Uses GitHub REST API
-- Inspired by the need to track Copilot premium request usage
-
-## Support
-
-For issues and feature requests, please use the [GitHub Issues](https://github.com/yourusername/copilot-accountant/issues) page.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ## Disclaimer
 
