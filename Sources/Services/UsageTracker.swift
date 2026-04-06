@@ -35,10 +35,9 @@ class UsageTracker: ObservableObject {
     private let log = LogService.shared
     
     private var pollingTimer: Timer?
-    private var hasAlerted80 = false
-    private var hasAlerted90 = false
-    private var alertedCustomPercentages: Set<Int> = []
-    private var lastAlertedWholePercent = 0
+    // AIDEV-NOTE: Alert state extracted into AlertState struct for testability.
+    // See AlertState.swift for the deduplication and reset logic.
+    private var alertState = AlertState()
     
     private let configKey = "budgetConfig"
     private let dailyUsageKey = "cachedDailyUsage"
@@ -65,12 +64,12 @@ class UsageTracker: ObservableObject {
         loadCachedData()
         
         // Load alert states
-        hasAlerted80 = userDefaults.bool(forKey: alert80Key)
-        hasAlerted90 = userDefaults.bool(forKey: alert90Key)
+        alertState.hasAlerted80 = userDefaults.bool(forKey: alert80Key)
+        alertState.hasAlerted90 = userDefaults.bool(forKey: alert90Key)
         if let storedCustomPercentages = userDefaults.array(forKey: alertCustomPercentagesKey) as? [Int] {
-            alertedCustomPercentages = Set(storedCustomPercentages)
+            alertState.alertedCustomPercentages = Set(storedCustomPercentages)
         }
-        lastAlertedWholePercent = userDefaults.integer(forKey: lastAlertedWholePercentKey)
+        alertState.lastAlertedWholePercent = userDefaults.integer(forKey: lastAlertedWholePercentKey)
     }
 
     static func postUsageUpdatedNotification() {
@@ -209,77 +208,54 @@ class UsageTracker: ObservableObject {
     /// Check thresholds and send alerts
     private func checkAndSendAlerts(usage: UsageResponse, reason: FetchReason) {
         let used = usage.totalRequests
-        let threshold80 = config.threshold80
-        let threshold90 = config.threshold90
-        let wholePercentUsed = config.wholePercentUsed(for: used)
-        
-        let minimumTrackedThreshold = ([threshold80, threshold90] + config.customAlertThresholds.map { config.customThresholdValue(for: $0) }).min() ?? threshold80
 
-        // Reset alerts if usage dropped enough to indicate a new month
-        if used < minimumTrackedThreshold {
-            hasAlerted80 = false
-            hasAlerted90 = false
-            alertedCustomPercentages = []
-            lastAlertedWholePercent = 0
-            userDefaults.set(false, forKey: alert80Key)
-            userDefaults.set(false, forKey: alert90Key)
-            userDefaults.removeObject(forKey: alertCustomPercentagesKey)
-            userDefaults.set(0, forKey: lastAlertedWholePercentKey)
-        }
-        
-        guard config.notificationsEnabled else { return }
+        // AIDEV-NOTE: Alert logic delegated to AlertState for testability.
+        // AlertState.processUsageUpdate returns which notifications to send
+        // and mutates state to prevent duplicate notifications.
+        let actions = alertState.processUsageUpdate(
+            used: used,
+            config: config,
+            shouldSendMilestones: reason.shouldSendMilestoneNotifications
+        )
 
-        if config.notifyEveryPercent &&
-            reason.shouldSendMilestoneNotifications &&
-            wholePercentUsed > lastAlertedWholePercent &&
-            wholePercentUsed > 0 &&
-            !config.shouldSkipMilestoneNotification(for: wholePercentUsed) {
-            notificationService.sendNotification(
-                type: .percentageMilestone(wholePercentUsed),
-                currentUsage: used,
-                budget: config.monthlyBudget
-            )
-            lastAlertedWholePercent = wholePercentUsed
-            userDefaults.set(wholePercentUsed, forKey: lastAlertedWholePercentKey)
-        } else if wholePercentUsed > lastAlertedWholePercent {
-            lastAlertedWholePercent = wholePercentUsed
-            userDefaults.set(wholePercentUsed, forKey: lastAlertedWholePercentKey)
-        }
-        
-        // 90% alert
-        if config.alertAt90Percent && used >= threshold90 && !hasAlerted90 {
-            notificationService.sendNotification(
-                type: .threshold90,
-                currentUsage: used,
-                budget: config.monthlyBudget
-            )
-            hasAlerted90 = true
-            userDefaults.set(true, forKey: alert90Key)
+        // Persist alert state to UserDefaults
+        userDefaults.set(alertState.hasAlerted80, forKey: alert80Key)
+        userDefaults.set(alertState.hasAlerted90, forKey: alert90Key)
+        userDefaults.set(Array(alertState.alertedCustomPercentages).sorted(), forKey: alertCustomPercentagesKey)
+        userDefaults.set(alertState.lastAlertedWholePercent, forKey: lastAlertedWholePercentKey)
+
+        // Send notifications for each action
+        for action in actions {
+            switch action {
+            case .milestone(let percent):
+                notificationService.sendNotification(
+                    type: .percentageMilestone(percent),
+                    currentUsage: used,
+                    budget: config.monthlyBudget
+                )
+            case .threshold80:
+                notificationService.sendNotification(
+                    type: .threshold80,
+                    currentUsage: used,
+                    budget: config.monthlyBudget
+                )
+            case .threshold90:
+                notificationService.sendNotification(
+                    type: .threshold90,
+                    currentUsage: used,
+                    budget: config.monthlyBudget
+                )
+            case .customThreshold(let percent):
+                notificationService.sendNotification(
+                    type: .customThreshold(percent),
+                    currentUsage: used,
+                    budget: config.monthlyBudget
+                )
+            }
         }
 
-        for customPercent in config.customAlertThresholds where used >= config.customThresholdValue(for: customPercent) && !alertedCustomPercentages.contains(customPercent) {
-            notificationService.sendNotification(
-                type: .customThreshold(customPercent),
-                currentUsage: used,
-                budget: config.monthlyBudget
-            )
-            alertedCustomPercentages.insert(customPercent)
-            userDefaults.set(Array(alertedCustomPercentages).sorted(), forKey: alertCustomPercentagesKey)
-        }
-        
-        // 80% alert
-        if config.alertAt80Percent && used >= threshold80 && !hasAlerted80 {
-            notificationService.sendNotification(
-                type: .threshold80,
-                currentUsage: used,
-                budget: config.monthlyBudget
-            )
-            hasAlerted80 = true
-            userDefaults.set(true, forKey: alert80Key)
-        }
-        
-        // Reset soon alert
-        if notificationService.shouldNotifyResetSoon() {
+        // Reset soon alert (independent of alert state tracking)
+        if config.notificationsEnabled && notificationService.shouldNotifyResetSoon() {
             notificationService.sendNotification(
                 type: .resetSoon,
                 currentUsage: used,

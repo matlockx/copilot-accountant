@@ -33,6 +33,7 @@ SOURCE_FILES=(
     "Sources/Models/NotificationSettingsConfiguration.swift"
     "Sources/Models/UsageData.swift"
     "Sources/Models/BudgetConfig.swift"
+    "Sources/Models/AlertState.swift"
     "Sources/Models/WindowConfiguration.swift"
     "Sources/Services/KeychainService.swift"
     "Sources/Services/NotificationService.swift"
