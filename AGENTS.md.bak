@@ -1,6 +1,3 @@
-<!-- Load the portable workflow framework -->
-@.opencode/INSTRUCTIONS.md
-
 # AGENTS.md - copilot-accountant
 
 <!--
@@ -21,7 +18,7 @@ When unsure about implementation details, ALWAYS ask the developer.
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | G-0 | Whenever unsure about something project-specific, ask the developer before making changes.                                               | ❌ Write changes when you don't have context for a particular feature/decision.                                                      |
 | G-1 | Add/update **`AIDEV-NOTE:` anchor comments** near non-trivial edited code.                                                               | ❌ Delete or mangle existing `AIDEV-` comments.                                                                                      |
-| G-2 | Follow existing code style. No linter is configured — match surrounding code conventions.                                                | ❌ Re-format code to any other style.                                                                                                |
+| G-2 | Follow lint/style configs (`.prettierrc`, `pyproject.toml`, `.pre-commit-config.yaml`). Use the project's configured linter.             | ❌ Re-format code to any other style.                                                                                                |
 | G-3 | For changes >300 LOC or >3 files, **ask for confirmation**.                                                                              | ❌ Refactor large modules without human guidance.                                                                                    |
 | G-4 | Stay within the current task context. Inform the dev if it'd be better to start afresh.                                                  | ❌ Continue work from a prior prompt after "new task" — start a fresh session.                                                       |
 | G-5 | **Update README/docs** whenever you change behavior, add features, or modify CLI flags.                                                  | ❌ Leave documentation out of sync with code changes.                                                                                |
@@ -32,25 +29,10 @@ When unsure about implementation details, ALWAYS ask the developer.
 
 ## Build & Test Commands [CUSTOMIZE]
 
-- **Build (release):** `./build-direct.sh release`
-- **Build (debug):** `./build-direct.sh debug`
-- **Build + Run:** `./build-direct.sh release --run`
-- **Build (SPM fallback):** `./build.sh --release`
-- **Test:** `./run-tests.sh`
-- **Install:** `sudo ./install.sh` (builds, bundles, code-signs, installs to `/Applications`)
-- **Lint:** No linter configured (no SwiftLint/SwiftFormat). Follow existing code style.
-- **Run a single test:** Compile and run a single test file manually, e.g.:
-  ```sh
-  swiftc -o .build/tests/AlertStateTests \
-    -target arm64-apple-macosx14.0 \
-    -framework Foundation -framework Security \
-    -framework UserNotifications -framework AppKit \
-    -parse-as-library \
-    Sources/Models/AlertState.swift [other required sources...] \
-    Tests/AlertStateTests.swift \
-  && .build/tests/AlertStateTests
-  ```
-- **Debug API:** `./debug-api.sh` (tests GitHub API endpoints via curl, requires `.env`)
+- **Build:** `<fill in your build command>`
+- **Test:** `<fill in your test command>`
+- **Lint:** `<fill in your lint command>`
+- **Run a single test:** `<fill in your single-test command>`
 
 ---
 
@@ -63,73 +45,47 @@ When unsure about implementation details, ALWAYS ask the developer.
 
 ### Language & Runtime
 
-- **Primary language:** Swift 6.0+
-- **Runtime / framework:** SwiftUI, Swift Charts, AppKit, Combine, Foundation, Security (Keychain), UserNotifications
-- **Platform:** macOS 14.0+ (Sonoma) — native menu bar agent app (`LSUIElement`, no Dock icon)
-- **Package manager / build tool:** Direct `swiftc` compilation via `build-direct.sh` (primary). `Package.swift` exists as SPM fallback but is not used for primary builds. No external dependencies.
-- **Bundle ID:** `com.copilot-accountant.app`
+- **Primary language:** <fill in your primary language>
+- **Runtime / framework:** <!-- e.g. Node 20 + Express, Go 1.22, Python 3.12 + FastAPI -->
+- **Package manager / build tool:** <!-- e.g. npm, yarn, go mod, cargo, uv -->
 
 ### Project Structure
 
+<!-- Describe the key directories and what lives in each.
+     Keep this in sync with actual layout — outdated maps mislead the AI.
+
+Example:
 ```
 copilot-accountant/
-├── Sources/                          ← application source code
-│   ├── App/                          ← app lifecycle & menu bar (entry point, AppDelegate, icon)
-│   ├── Models/                       ← data models & config (AlertState, BudgetConfig, UsageData, etc.)
-│   ├── Services/                     ← business logic & integrations (API, Keychain, logging, tracking)
-│   └── Views/                        ← SwiftUI views (MenuBar, DetailedStats, Settings)
-├── Tests/                            ← test suite (~529 tests, 20 files, standalone executables)
-├── Resources/                        ← app bundle resources (icons, plists, entitlements)
-├── docs/                             ← documentation
-│   └── adr/                          ← Architecture Decision Records
-├── specs/                            ← technical specifications (refactor plans)
-├── hooks/                            ← git hooks (pre-commit, commit-msg)
-├── plans/                            ← committed workflow plans (backlog markdowns)
-├── .opencode/                        ← OpenCode workflow machinery
-├── .beads/                           ← Beads workflow state
-├── .build/                           ← build output (gitignored)
-├── build-direct.sh                   ← primary build script (direct swiftc)
-├── build.sh                          ← alternative SPM build script
-├── run-tests.sh                      ← test runner (compiles each test independently)
-├── install.sh                        ← full install script (build + bundle + sign + install)
-├── create-app-bundle.sh              ← app bundle directory creation
-├── debug-api.sh                      ← GitHub API debugging tool
-├── Package.swift                     ← SPM manifest (fallback only, not primary)
-├── FEATURES.md                       ← feature specification (source of truth)
-├── CHANGELOG.md                      ← version changelog
-└── README.md                         ← user documentation
+├── src/           ← application source
+│   ├── api/       ← HTTP handlers / routes
+│   ├── domain/    ← business logic (no framework deps)
+│   └── infra/     ← database, external clients
+├── test/          ← test files (mirrors src/ layout)
+├── docs/          ← architecture decisions (ADRs in docs/adr/)
+└── scripts/       ← dev tooling
 ```
+-->
 
 ### Key Patterns & Conventions
 
-- **Error handling:** Typed `LocalizedError`-conforming enums per service (e.g., `APIError`, `KeychainError`). Errors carry associated values with context (HTTP status codes, response bodies). All errors implement `errorDescription`. Use `guard`/`else` with early returns for preconditions.
-- **Logging:** Custom `LogService` singleton (`LogService.shared`). Writes to `~/Library/Application Support/CopilotAccountant/copilot-accountant.log`. Four levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`. Thread-safe via `DispatchQueue`. Global convenience function `appLog()` available.
-- **Storage:** No database. `UserDefaults` for config and cached data, macOS Keychain for GitHub token, file-based logging. All data serialized with `Codable`.
-- **Testing:** Custom test framework — each test file is a standalone `@main` executable with its own `TestCase` class (not XCTest). Tests compiled independently via `run-tests.sh`. Feature-tagged headers reference `FEATURES.md` IDs. ~529 tests across 20 files.
-- **API style:** REST client consuming GitHub Billing API. Bearer token auth. `async/await` concurrency throughout. Generic `makeRequest<T: Decodable>` with full status code handling.
-- **UI architecture:** SwiftUI views with `@ObservedObject` bindings to `UsageTracker` (`@MainActor ObservableObject`). AppKit integration for status bar, popover, and windows. Programmatic Core Graphics icon rendering.
-- **Concurrency:** `@MainActor` on UI-bound classes, `@Published` properties for SwiftUI binding, `DispatchQueue` for thread-safe logging.
+<!-- Document the coding patterns the AI should follow for this project.
+     Examples:
+     - Error handling: wrap with context using fmt.Errorf("op: %w", err)
+     - Logging: structured log via slog, always include trace ID
+     - Database: sqlc-generated queries in internal/db/, migrations in db/migrations/
+     - Testing: table-driven tests, testcontainers for integration tests
+     - API style: RESTful, JSON, camelCase fields, problem+json errors
+-->
 
 ### Domain Terminology
 
-- **Premium Requests:** GitHub Copilot API requests that count against a monthly quota. Different models consume different amounts.
-- **Gross Quantity:** The raw number of API requests made (actual usage). This is the primary metric, NOT net quantity.
-- **Net Quantity:** Requests remaining after discounts (often 0 when within included plan). Used for billing/overage calculations.
-- **Model Multiplier:** Factor determining how many premium requests a single API call to a specific model consumes (e.g., Claude Opus = 3x, GPT-4o = 0x/Included, Haiku = 0.33x).
-- **Monthly Budget:** User-configured max premium requests per month (default: 300 for Copilot Pro).
-- **Dollar Budget / Spending Budget:** Optional user-configured dollar spending cap. Computed from `totalNetCost` (sum of `netAmount` across usage items).
-- **Billing Period:** Monthly cycle (year/month) for usage tracking. Resets on the 1st of each month.
-- **Status Color:** Color-coded usage indicator: Green (0-59%), Yellow (60-79%), Orange (80-89%), Red (90%+).
-- **Threshold Alert:** Notification sent when usage crosses a configured percentage (default: 80%, 90%). Fires once per billing cycle.
-- **Custom Alert Threshold:** User-defined percentage alert (add/remove/enable/disable).
-- **Milestone Notification:** Per-percent notification (fires once per whole percentage point reached).
-- **Alert State:** Pure-value struct tracking which notifications have been sent to prevent duplicates across polling cycles.
-- **Usage Tracker:** Core `@MainActor` `ObservableObject` that manages polling, API calls, cached data, alert state, and spending budget computation.
-- **Polling Interval:** How often the app checks GitHub API for updates (default: 5 minutes).
-- **Model Catalog:** Complete list of all known Copilot models (used + available + free), merged from API usage data and hardcoded/cached multiplier lists.
-- **Fine-grained Token:** GitHub Personal Access Token with granular "Plan: Read-only" permission (classic tokens do not work).
-- **LSUIElement:** macOS app property that makes the app a menu bar agent (no Dock icon).
-- **Copilot Visor Icon:** The programmatically-drawn menu bar icon (Core Graphics NSImage) tinted by status color.
+<!-- Define project-specific terms the AI should know.
+     Example:
+     - Tenant: a paying organisation using the platform
+     - Ledger: append-only record of financial events for one tenant
+     - Settlement: process of netting ledger entries into a transfer batch
+-->
 
 ---
 
