@@ -1,670 +1,938 @@
 ---
 name: coding-standards
-description: Use this skill when writing Swift code. Provides coding standards, naming conventions, error handling, and best practices.
+description: Universal coding standards, best practices, and patterns for Go, Rust, Swift, TypeScript, JavaScript, React, and Node.js development.
 ---
 
-# Swift Coding Standards & Best Practices
+# Coding Standards & Best Practices
 
-Comprehensive coding standards for Swift projects — applicable to iOS, macOS, server-side Swift, and CLI tools.
+Universal coding standards applicable across all projects.
 
----
+## Code Quality Principles
 
-## 1. Formatting & Linting
+### 1. Readability First
+- Code is read more than written
+- Clear variable and function names
+- Self-documenting code preferred over comments
+- Consistent formatting
 
-### Recommended Tools
+### 2. KISS (Keep It Simple, Stupid)
+- Simplest solution that works
+- Avoid over-engineering
+- No premature optimization
+- Easy to understand > clever code
 
-| Tool | Purpose | Command |
-|------|---------|---------|
-| `swift-format` | Official Apple formatter | `swift-format format --in-place --recursive Sources/` |
-| `SwiftLint` | Linter with 200+ rules | `swiftlint lint --strict` |
-| `swiftlint --fix` | Auto-correct safe violations | `swiftlint --fix` |
+### 3. DRY (Don't Repeat Yourself)
+- Extract common logic into functions
+- Create reusable components
+- Share utilities across modules
+- Avoid copy-paste programming
 
-### Configuration
+### 4. YAGNI (You Aren't Gonna Need It)
+- Don't build features before they're needed
+- Avoid speculative generality
+- Add complexity only when required
+- Start simple, refactor when needed
 
-**.swift-format** (project root):
-```json
-{
-  "indentation": { "spaces": 4 },
-  "lineLength": 120,
-  "respectsExistingLineBreaks": true,
-  "blankLineBetweenMembers": { "insertBlankLine": true }
+## TypeScript/JavaScript Standards
+
+### Formatting
+
+- Use Prettier with single quotes, trailing commas, and a print width of 100.
+- Prefer running `yarn lint --fix` over manual formatting.
+
+### Imports
+
+- Use ES6 imports.
+- For third-party libraries like lodash, import specific functions (e.g., `import { get } from 'lodash'`).
+
+### General
+
+- Follow existing patterns in the codebase.
+- Do not introduce new libraries without discussion.
+
+### Variable Naming
+
+- Use `camelCase` for variables.
+- Prefer descriptive names over abbreviations.
+
+```typescript
+// ✅ GOOD: Descriptive names
+const marketSearchQuery = 'election'
+const isUserAuthenticated = true
+const totalRevenue = 1000
+
+// ❌ BAD: Unclear names
+const q = 'election'
+const flag = true
+const x = 1000
+```
+
+### Function Naming
+
+- Use `camelCase` for functions.
+- Prefer verb-noun naming (e.g., `fetchX`, `calculateY`, `isZ`).
+
+```typescript
+// ✅ GOOD: Verb-noun pattern
+async function fetchMarketData(marketId: string) { }
+function calculateSimilarity(a: number[], b: number[]) { }
+function isValidEmail(email: string): boolean { }
+
+// ❌ BAD: Unclear or noun-only
+async function market(id: string) { }
+function similarity(a, b) { }
+function email(e) { }
+```
+
+### Immutability Pattern (CRITICAL)
+
+```typescript
+// ✅ ALWAYS use spread operator
+const updatedUser = {
+  ...user,
+  name: 'New Name'
+}
+
+const updatedArray = [...items, newItem]
+
+// ❌ NEVER mutate directly
+user.name = 'New Name'  // BAD
+items.push(newItem)     // BAD
+```
+
+### Error Handling
+
+- Prefer a codebase-provided error helper when available (e.g., `utils/error.js` with `error.throwError()`).
+- Include context and preserve the original error when rethrowing.
+
+```typescript
+// ✅ GOOD: Comprehensive error handling
+async function fetchData(url: string) {
+  try {
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Fetch failed:', error)
+    throw new Error('Failed to fetch data')
+  }
+}
+
+// ❌ BAD: No error handling
+async function fetchData(url) {
+  const response = await fetch(url)
+  return response.json()
 }
 ```
 
-**.swiftlint.yml** (project root):
-```yaml
-disabled_rules:
-  - trailing_whitespace
-opt_in_rules:
-  - force_unwrapping
-  - implicitly_unwrapped_optional
-  - closure_spacing
-  - empty_count
-line_length: 120
+### Async/Await Best Practices
+
+```typescript
+// ✅ GOOD: Parallel execution when possible
+const [users, markets, stats] = await Promise.all([
+  fetchUsers(),
+  fetchMarkets(),
+  fetchStats()
+])
+
+// ❌ BAD: Sequential when unnecessary
+const users = await fetchUsers()
+const markets = await fetchMarkets()
+const stats = await fetchStats()
 ```
 
-### Pre-commit Hook
+### Type Safety
 
-```sh
-#!/bin/sh
-swift-format lint --recursive Sources/ && swiftlint lint --strict
-```
+- Prefer TypeScript for new modules; use JSDoc for type hints in `.js` files when needed.
+- Use `PascalCase` for classes and enums.
+- Use `snake_case` for database fields/columns.
 
----
-
-## 2. Naming Conventions
-
-### Types & Protocols
-
-```swift
-// ✅ UpperCamelCase for types, enums, structs, protocols
-struct UserProfile { }
-enum NetworkError { }
-class AuthenticationManager { }
-protocol DataFetchable { }     // Protocol names as adjectives/nouns ending in -able, -ing, or descriptive noun
-
-// ❌ Never snake_case or lowercase for types
-struct user_profile { }        // wrong
-class authManager { }          // wrong
-```
-
-### Variables, Properties & Parameters
-
-```swift
-// ✅ lowerCamelCase for variables, properties, parameters, functions
-var isLoading: Bool = false
-let maximumRetryCount = 3
-func fetchUser(withID id: String) -> User { }
-
-// ✅ Boolean names should read as assertions
-var isAuthenticated: Bool
-var hasCompletedOnboarding: Bool
-var canRefresh: Bool
-
-// ❌ Avoid single-letter names outside of trivial closures/loops
-var x = user         // wrong (non-trivial context)
-for i in 0..<10 { } // fine (trivial index)
-```
-
-### Constants & Enums
-
-```swift
-// ✅ lowerCamelCase enum cases (Swift 3+ convention)
-enum Direction {
-    case north, south, east, west
+```typescript
+// ✅ GOOD: Proper types
+interface Market {
+  id: string
+  name: string
+  status: 'active' | 'resolved' | 'closed'
+  created_at: Date
 }
 
-enum HTTPStatusCode: Int {
-    case ok = 200
-    case notFound = 404
-    case internalServerError = 500
+function getMarket(id: string): Promise<Market> {
+  // Implementation
 }
 
-// ✅ Static constants in a type or enum namespace
-enum API {
-    static let baseURL = "https://api.example.com"
-    static let timeout: TimeInterval = 30
+// ❌ BAD: Using 'any'
+function getMarket(id: any): Promise<any> {
+  // Implementation
+}
+```
+
+### Reference Style Guides
+
+- CommonJS: <https://google.github.io/styleguide/jsguide.html>
+- TypeScript: <https://google.github.io/styleguide/tsguide.html>
+
+## React Best Practices
+
+### Component Structure
+
+```typescript
+// ✅ GOOD: Functional component with types
+interface ButtonProps {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  variant?: 'primary' | 'secondary'
 }
 
-// ❌ Global constants with k-prefix (Objective-C legacy)
-let kBaseURL = "..."  // outdated
+export function Button({
+  children,
+  onClick,
+  disabled = false,
+  variant = 'primary'
+}: ButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`btn btn-${variant}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ❌ BAD: No types, unclear structure
+export function Button(props) {
+  return <button onClick={props.onClick}>{props.children}</button>
+}
 ```
 
-### Functions & Methods
+### Custom Hooks
 
-```swift
-// ✅ Verb-first, describe the action clearly
-func fetchUserProfile(id: String) async throws -> UserProfile
-func validateEmail(_ email: String) -> Bool
-func presentAlert(title: String, message: String)
+```typescript
+// ✅ GOOD: Reusable custom hook
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
-// ✅ Use argument labels to read as English phrases
-user.move(from: startPoint, to: endPoint)
-list.insert(item, at: 0)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
 
-// ❌ Redundant type names in method names
-func getUserUser() -> User   // "User" repeated
-func fetchStringData() -> String  // redundant "String"
+    return () => clearTimeout(handler)
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// Usage
+const debouncedQuery = useDebounce(searchQuery, 500)
 ```
 
----
+### State Management
 
-## 3. Error Handling
+```typescript
+// ✅ GOOD: Proper state updates
+const [count, setCount] = useState(0)
 
-### Idiomatic Swift Error Patterns
+// Functional update for state based on previous state
+setCount(prev => prev + 1)
 
-```swift
-// ✅ Define rich, typed errors with associated values
-enum NetworkError: Error, LocalizedError {
-    case invalidURL(String)
-    case httpError(statusCode: Int, body: Data?)
-    case decodingFailed(underlying: Error)
-    case timeout
+// ❌ BAD: Direct state reference
+setCount(count + 1)  // Can be stale in async scenarios
+```
 
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL(let url):
-            return "Invalid URL: \(url)"
-        case .httpError(let code, _):
-            return "HTTP error \(code)"
-        case .decodingFailed(let error):
-            return "Decoding failed: \(error.localizedDescription)"
-        case .timeout:
-            return "Request timed out"
+### Conditional Rendering
+
+```typescript
+// ✅ GOOD: Clear conditional rendering
+{isLoading && <Spinner />}
+{error && <ErrorMessage error={error} />}
+{data && <DataDisplay data={data} />}
+
+// ❌ BAD: Ternary hell
+{isLoading ? <Spinner /> : error ? <ErrorMessage error={error} /> : data ? <DataDisplay data={data} /> : null}
+```
+
+## API Design Standards
+
+### REST API Conventions
+
+```
+GET    /api/markets              # List all markets
+GET    /api/markets/:id          # Get specific market
+POST   /api/markets              # Create new market
+PUT    /api/markets/:id          # Update market (full)
+PATCH  /api/markets/:id          # Update market (partial)
+DELETE /api/markets/:id          # Delete market
+
+# Query parameters for filtering
+GET /api/markets?status=active&limit=10&offset=0
+```
+
+### Response Format
+
+```typescript
+// ✅ GOOD: Consistent response structure
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  meta?: {
+    total: number
+    page: number
+    limit: number
+  }
+}
+
+// Success response
+return NextResponse.json({
+  success: true,
+  data: markets,
+  meta: { total: 100, page: 1, limit: 10 }
+})
+
+// Error response
+return NextResponse.json({
+  success: false,
+  error: 'Invalid request'
+}, { status: 400 })
+```
+
+### Input Validation
+
+```typescript
+import { z } from 'zod'
+
+// ✅ GOOD: Schema validation
+const CreateMarketSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+  endDate: z.string().datetime(),
+  categories: z.array(z.string()).min(1)
+})
+
+export async function POST(request: Request) {
+  const body = await request.json()
+
+  try {
+    const validated = CreateMarketSchema.parse(body)
+    // Proceed with validated data
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({
+        success: false,
+        error: 'Validation failed',
+        details: error.errors
+      }, { status: 400 })
+    }
+  }
+}
+```
+
+## File Organization
+
+### Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   ├── markets/           # Market pages
+│   └── (auth)/           # Auth pages (route groups)
+├── components/            # React components
+│   ├── ui/               # Generic UI components
+│   ├── forms/            # Form components
+│   └── layouts/          # Layout components
+├── hooks/                # Custom React hooks
+├── lib/                  # Utilities and configs
+│   ├── api/             # API clients
+│   ├── utils/           # Helper functions
+│   └── constants/       # Constants
+├── types/                # TypeScript types
+└── styles/              # Global styles
+```
+
+### File Naming
+
+```
+components/Button.tsx          # PascalCase for components
+hooks/useAuth.ts              # camelCase with 'use' prefix
+lib/formatDate.ts             # camelCase for utilities
+types/market.types.ts         # camelCase with .types suffix
+```
+
+## Comments & Documentation
+
+### When to Comment
+
+```typescript
+// ✅ GOOD: Explain WHY, not WHAT
+// Use exponential backoff to avoid overwhelming the API during outages
+const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
+
+// Deliberately using mutation here for performance with large arrays
+items.push(newItem)
+
+// ❌ BAD: Stating the obvious
+// Increment counter by 1
+count++
+
+// Set name to user's name
+name = user.name
+```
+
+### JSDoc for Public APIs
+
+```typescript
+/**
+ * Searches markets using semantic similarity.
+ *
+ * @param query - Natural language search query
+ * @param limit - Maximum number of results (default: 10)
+ * @returns Array of markets sorted by similarity score
+ * @throws {Error} If OpenAI API fails or Redis unavailable
+ *
+ * @example
+ * ```typescript
+ * const results = await searchMarkets('election', 5)
+ * console.log(results[0].name) // "Trump vs Biden"
+ * ```
+ */
+export async function searchMarkets(
+  query: string,
+  limit: number = 10
+): Promise<Market[]> {
+  // Implementation
+}
+```
+
+## Performance Best Practices
+
+### Memoization
+
+```typescript
+import { useMemo, useCallback } from 'react'
+
+// ✅ GOOD: Memoize expensive computations
+const sortedMarkets = useMemo(() => {
+  return markets.sort((a, b) => b.volume - a.volume)
+}, [markets])
+
+// ✅ GOOD: Memoize callbacks
+const handleSearch = useCallback((query: string) => {
+  setSearchQuery(query)
+}, [])
+```
+
+### Lazy Loading
+
+```typescript
+import { lazy, Suspense } from 'react'
+
+// ✅ GOOD: Lazy load heavy components
+const HeavyChart = lazy(() => import('./HeavyChart'))
+
+export function Dashboard() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <HeavyChart />
+    </Suspense>
+  )
+}
+```
+
+### Database Queries
+
+```typescript
+// ✅ GOOD: Select only needed columns
+const { data } = await supabase
+  .from('markets')
+  .select('id, name, status')
+  .limit(10)
+
+// ❌ BAD: Select everything
+const { data } = await supabase
+  .from('markets')
+  .select('*')
+```
+
+## Testing Standards
+
+### Test Structure (AAA Pattern)
+
+```typescript
+test('calculates similarity correctly', () => {
+  // Arrange
+  const vector1 = [1, 0, 0]
+  const vector2 = [0, 1, 0]
+
+  // Act
+  const similarity = calculateCosineSimilarity(vector1, vector2)
+
+  // Assert
+  expect(similarity).toBe(0)
+})
+```
+
+### Test Naming
+
+```typescript
+// ✅ GOOD: Descriptive test names
+test('returns empty array when no markets match query', () => { })
+test('throws error when OpenAI API key is missing', () => { })
+test('falls back to substring search when Redis unavailable', () => { })
+
+// ❌ BAD: Vague test names
+test('works', () => { })
+test('test search', () => { })
+```
+
+## Code Smell Detection
+
+Watch for these anti-patterns:
+
+### 1. Long Functions
+```typescript
+// ❌ BAD: Function > 50 lines
+function processMarketData() {
+  // 100 lines of code
+}
+
+// ✅ GOOD: Split into smaller functions
+function processMarketData() {
+  const validated = validateData()
+  const transformed = transformData(validated)
+  return saveData(transformed)
+}
+```
+
+### 2. Deep Nesting
+```typescript
+// ❌ BAD: 5+ levels of nesting
+if (user) {
+  if (user.isAdmin) {
+    if (market) {
+      if (market.isActive) {
+        if (hasPermission) {
+          // Do something
         }
+      }
     }
+  }
 }
 
-// ✅ Propagate errors with throws / async throws
-func fetchData(from url: URL) async throws -> Data {
-    let (data, response) = try await URLSession.shared.data(from: url)
-    guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-        throw NetworkError.httpError(statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1, body: data)
-    }
-    return data
+// ✅ GOOD: Early returns
+if (!user) return
+if (!user.isAdmin) return
+if (!market) return
+if (!market.isActive) return
+if (!hasPermission) return
+
+// Do something
+```
+
+### 3. Magic Numbers
+```typescript
+// ❌ BAD: Unexplained numbers
+if (retryCount > 3) { }
+setTimeout(callback, 500)
+
+// ✅ GOOD: Named constants
+const MAX_RETRIES = 3
+const DEBOUNCE_DELAY_MS = 500
+
+if (retryCount > MAX_RETRIES) { }
+setTimeout(callback, DEBOUNCE_DELAY_MS)
+```
+
+---
+
+## Go Standards
+
+For comprehensive Go development guidance, see the dedicated **`golang` skill** which covers:
+
+- Go Proverbs from Rob Pike
+- Naming conventions and interface design
+- Error handling patterns (including the `errWriter` pattern)
+- Concurrency best practices
+- Testing patterns
+- Common pitfalls
+
+The `golang` skill is based on authoritative sources: [Go Proverbs](https://go-proverbs.github.io/), 
+[Effective Go](https://go.dev/doc/effective_go), [Code Review Comments](https://go.dev/wiki/CodeReviewComments), 
+and [Google's Go Style Guide](https://google.github.io/styleguide/go/).
+
+---
+
+## Rust Standards
+
+### Formatting & Linting
+
+```bash
+# Always run before commit
+cargo fmt
+cargo clippy -- -D warnings
+```
+
+### Naming Conventions
+
+```rust
+// Types, traits, enums - UpperCamelCase
+struct UserService {}
+trait Repository {}
+enum UserRole { Admin, User, Guest }
+
+// Functions, methods, variables - snake_case
+fn create_user(email: &str) -> Result<User, Error> {}
+let user_id = "123";
+
+// Constants and statics - SCREAMING_SNAKE_CASE
+const MAX_RETRIES: u32 = 3;
+static DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+// Modules and crates - snake_case
+mod user_service;
+mod database;
+```
+
+### Error Handling
+
+```rust
+// Use thiserror for library/service errors
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum ServiceError {
+    #[error("user not found: {id}")]
+    NotFound { id: String },
+
+    #[error("validation failed: {field} - {message}")]
+    Validation { field: String, message: String },
+
+    #[error("database error: {0}")]
+    Database(#[from] sqlx::Error),
+
+    #[error("unexpected error: {0}")]
+    Internal(#[from] anyhow::Error),
 }
 
-// ✅ Handle errors at the right layer with do/catch
-do {
-    let data = try await fetchData(from: endpoint)
-    let user = try JSONDecoder().decode(User.self, from: data)
-    await update(with: user)
-} catch NetworkError.timeout {
-    showRetryPrompt()
-} catch let NetworkError.httpError(code, _) where code == 401 {
-    navigateToLogin()
-} catch {
-    logger.error("Unexpected error: \(error)")
-    showGenericError()
+// Use anyhow for application/binary errors
+use anyhow::{Context, Result};
+
+fn load_config(path: &str) -> Result<Config> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read config from {path}"))?;
+
+    let config: Config = toml::from_str(&content)
+        .context("failed to parse config")?;
+
+    Ok(config)
 }
 
-// ❌ Swallowing errors silently
-do {
-    let result = try riskyOperation()
-} catch { }   // never swallow — at minimum log
+// ✅ GOOD: Propagate with ?
+fn process(id: &str) -> Result<Output, ServiceError> {
+    let user = repo.find(id)?;
+    let result = transform(user)?;
+    Ok(result)
+}
 
-// ❌ Force-try in production code
-let data = try! JSONEncoder().encode(value)  // crashes on failure
+// ❌ BAD: Panic in library code
+fn process(id: &str) -> Output {
+    let user = repo.find(id).unwrap();  // Don't panic in libs
+    transform(user).unwrap()
+}
+```
 
-// ✅ Result type for deferred/callback-based APIs
-func loadImage(url: URL, completion: @escaping (Result<UIImage, ImageError>) -> Void) {
+### Ownership and Borrowing
+
+```rust
+// Prefer borrowing over cloning
+fn process_user(user: &User) -> Summary {  // borrow
     // ...
 }
-```
 
-### Optional Handling
-
-```swift
-// ✅ guard-let for early returns
-func process(input: String?) {
-    guard let value = input, !value.isEmpty else {
-        return
-    }
-    // use `value` here
-}
-
-// ✅ if-let for single-branch optional use
-if let user = currentUser {
-    greet(user)
-}
-
-// ✅ nil-coalescing for defaults
-let displayName = user.nickname ?? user.fullName
-
-// ❌ Force-unwrap (!) in production logic
-let name = user!.name   // crash waiting to happen
-
-// ❌ Pyramid of doom
-if let a = optA {
-    if let b = optB {
-        if let c = optC { }
-    }
-}
-// ✅ Use multi-binding guard/if-let
-guard let a = optA, let b = optB, let c = optC else { return }
-```
-
----
-
-## 4. Project Structure
-
-### iOS / macOS App
-
-```
-MyApp/
-├── App/
-│   ├── MyApp.swift              # @main entry point
-│   └── AppDelegate.swift
-├── Features/
-│   ├── Auth/
-│   │   ├── AuthView.swift
-│   │   ├── AuthViewModel.swift
-│   │   └── AuthService.swift
-│   └── Home/
-│       ├── HomeView.swift
-│       └── HomeViewModel.swift
-├── Core/
-│   ├── Networking/
-│   │   ├── APIClient.swift
-│   │   └── Endpoint.swift
-│   ├── Persistence/
-│   │   └── Database.swift
-│   └── Extensions/
-│       ├── String+Extensions.swift
-│       └── Date+Extensions.swift
-├── Models/
-│   ├── User.swift
-│   └── Product.swift
-├── Resources/
-│   ├── Assets.xcassets
-│   └── Localizable.strings
-└── Tests/
-    ├── Unit/
-    └── Integration/
-```
-
-### Swift Package (Server / CLI)
-
-```
-MyPackage/
-├── Package.swift
-├── Sources/
-│   └── MyPackage/
-│       ├── main.swift            # CLI entry point (if executable)
-│       ├── MyPackage.swift       # public API surface
-│       └── Internal/
-├── Tests/
-│   └── MyPackageTests/
-│       └── MyPackageTests.swift
-└── README.md
-```
-
----
-
-## 5. Testing Patterns
-
-### XCTest (Unit Tests)
-
-```swift
-import XCTest
-@testable import MyApp
-
-final class UserServiceTests: XCTestCase {
-
-    // AIDEV-NOTE: setUp/tearDown ensure test isolation — don't share mutable state
-    var sut: UserService!
-    var mockRepository: MockUserRepository!
-
-    override func setUp() {
-        super.setUp()
-        mockRepository = MockUserRepository()
-        sut = UserService(repository: mockRepository)
-    }
-
-    override func tearDown() {
-        sut = nil
-        mockRepository = nil
-        super.tearDown()
-    }
-
-    // ✅ Test names: test_<method>_<condition>_<expectedResult>
-    func test_fetchUser_withValidID_returnsUser() async throws {
-        // Arrange
-        let expected = User(id: "42", name: "Alice")
-        mockRepository.stubbedUser = expected
-
-        // Act
-        let result = try await sut.fetchUser(id: "42")
-
-        // Assert
-        XCTAssertEqual(result, expected)
-    }
-
-    func test_fetchUser_whenRepositoryThrows_propagatesError() async {
-        // Arrange
-        mockRepository.stubbedError = NetworkError.timeout
-
-        // Act / Assert
-        do {
-            _ = try await sut.fetchUser(id: "99")
-            XCTFail("Expected error to be thrown")
-        } catch NetworkError.timeout {
-            // ✅ expected
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-    }
-}
-```
-
-### Swift Testing (Swift 5.9+)
-
-```swift
-import Testing
-@testable import MyApp
-
-@Suite("UserService")
-struct UserServiceTests {
-
-    @Test("returns user for valid ID")
-    func fetchUserWithValidID() async throws {
-        let mock = MockUserRepository(stubbedUser: User(id: "1", name: "Bob"))
-        let service = UserService(repository: mock)
-        let user = try await service.fetchUser(id: "1")
-        #expect(user.name == "Bob")
-    }
-
-    @Test("propagates timeout error", .tags(.networking))
-    func fetchUserTimeout() async throws {
-        let mock = MockUserRepository(stubbedError: NetworkError.timeout)
-        let service = UserService(repository: mock)
-        await #expect(throws: NetworkError.timeout) {
-            try await service.fetchUser(id: "x")
-        }
-    }
-}
-```
-
-### Mocking Pattern (Protocol-based)
-
-```swift
-// ✅ Define dependencies as protocols for easy mocking
-protocol UserRepositoryProtocol {
-    func fetchUser(id: String) async throws -> User
-}
-
-final class MockUserRepository: UserRepositoryProtocol {
-    var stubbedUser: User?
-    var stubbedError: Error?
-    var fetchCallCount = 0
-
-    func fetchUser(id: String) async throws -> User {
-        fetchCallCount += 1
-        if let error = stubbedError { throw error }
-        return stubbedUser!
-    }
-}
-```
-
----
-
-## 6. Async / Concurrency
-
-### async/await (Swift 5.5+)
-
-```swift
-// ✅ Prefer async/await over callbacks
-func loadProfile() async throws -> Profile {
-    let data = try await apiClient.get("/profile")
-    return try JSONDecoder().decode(Profile.self, from: data)
-}
-
-// ✅ Parallel async work with async let
-async let user = fetchUser(id: userId)
-async let posts = fetchPosts(for: userId)
-let (resolvedUser, resolvedPosts) = try await (user, posts)
-
-// ✅ TaskGroup for dynamic parallelism
-let results = try await withThrowingTaskGroup(of: Post.self) { group in
-    for id in postIDs {
-        group.addTask { try await fetchPost(id: id) }
-    }
-    return try await group.reduce(into: []) { $0.append($1) }
-}
-```
-
-### Actors
-
-```swift
-// ✅ Use actors to protect shared mutable state
-actor Cache {
-    private var storage: [String: Data] = [:]
-
-    func value(for key: String) -> Data? {
-        storage[key]
-    }
-
-    func store(_ data: Data, for key: String) {
-        storage[key] = data
-    }
-}
-
-// ✅ @MainActor for UI updates
-@MainActor
-class ViewModel: ObservableObject {
-    @Published var items: [Item] = []
-
-    func load() async {
-        let fetched = try? await service.fetchItems()
-        items = fetched ?? []
-    }
-}
-```
-
-### Sendable & Data Races
-
-```swift
-// ✅ Mark types Sendable when they are safe to share across concurrency domains
-struct UserProfile: Sendable {
-    let id: String
-    let name: String
-}
-
-// ✅ Use @Sendable closures in async contexts
-func processItems(_ handler: @Sendable @escaping (Item) -> Void) { }
-
-// ❌ Don't capture mutable state in concurrent closures
-var count = 0
-Task { count += 1 }   // data race — use actor or Atomic
-```
-
----
-
-## 7. Type Safety
-
-### Value vs Reference Types
-
-```swift
-// ✅ Prefer structs (value semantics) for data models
-struct Point { var x: Double; var y: Double }
-struct User: Codable, Identifiable { var id: UUID; var name: String }
-
-// ✅ Use classes when you need reference semantics / inheritance / ObjC interop
-class ViewController: UIViewController { }
-
-// ✅ Use enums with associated values instead of stringly-typed flags
-enum AuthState {
-    case unauthenticated
-    case authenticating(progress: Double)
-    case authenticated(User)
-    case failed(AuthError)
-}
-```
-
-### Generics & Protocols
-
-```swift
-// ✅ Protocol + generic > class hierarchy for reusability
-protocol Repository<T> {
-    associatedtype T
-    func findAll() async throws -> [T]
-    func findByID(_ id: String) async throws -> T?
-}
-
-// ✅ some / any for existentials (Swift 5.7+)
-func makeStorage() -> some Storage { FileStorage() }   // opaque, preferred
-func process(storage: any Storage) { }                  // existential, when type is unknown at compile time
-```
-
-### Codable
-
-```swift
-// ✅ Use CodingKeys only when JSON keys differ from Swift names
-struct Product: Codable {
-    let id: UUID
-    let displayName: String
-    let priceInCents: Int
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case displayName = "display_name"
-        case priceInCents = "price_in_cents"
-    }
-}
-
-// ✅ Custom decoder for complex JSON shapes
-init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    id = try container.decode(UUID.self, forKey: .id)
+// Clone only when needed
+fn store_user(user: User) -> StoredUser {  // owned, stored elsewhere
     // ...
 }
+
+// Use Cow for conditionally owned data
+use std::borrow::Cow;
+
+fn normalize(s: &str) -> Cow<str> {
+    if s.contains(' ') {
+        Cow::Owned(s.replace(' ', "_"))
+    } else {
+        Cow::Borrowed(s)
+    }
+}
+
+// ✅ GOOD: Return references when lifetime allows
+fn first_user<'a>(users: &'a [User]) -> Option<&'a User> {
+    users.first()
+}
+
+// ❌ BAD: Unnecessary clone
+fn get_name(user: &User) -> String {
+    user.name.clone()  // Only clone if you need owned value
+}
 ```
 
----
+### Async (Tokio)
 
-## 8. Common Pitfalls
+```rust
+use tokio::time::{timeout, Duration};
 
-### Retain Cycles
+// ✅ GOOD: Async functions return futures
+async fn fetch_user(id: &str) -> Result<User, ServiceError> {
+    let user = db.find_user(id).await?;
+    Ok(user)
+}
 
-```swift
-// ❌ Strong capture of self in closures causes retain cycle
-class ViewModel {
-    var onUpdate: (() -> Void)?
+// ✅ GOOD: Parallel with join!
+async fn fetch_all(id: &str) -> Result<(User, Vec<Order>), ServiceError> {
+    let (user, orders) = tokio::try_join!(
+        fetch_user(id),
+        fetch_orders(id),
+    )?;
+    Ok((user, orders))
+}
 
-    func setup() {
-        onUpdate = {
-            self.refresh()   // retain cycle: ViewModel → closure → ViewModel
+// ✅ GOOD: Timeout handling
+async fn fetch_with_timeout(id: &str) -> Result<User, ServiceError> {
+    timeout(Duration::from_secs(5), fetch_user(id))
+        .await
+        .map_err(|_| ServiceError::Timeout)?
+}
+
+// ❌ BAD: Blocking inside async
+async fn process() {
+    std::thread::sleep(Duration::from_secs(1));  // Blocks runtime!
+    // Use: tokio::time::sleep(Duration::from_secs(1)).await;
+}
+```
+
+### Traits and Generics
+
+```rust
+// Define traits for dependency injection
+#[async_trait::async_trait]
+pub trait UserRepository: Send + Sync {
+    async fn find(&self, id: &str) -> Result<User, ServiceError>;
+    async fn create(&self, input: CreateUserInput) -> Result<User, ServiceError>;
+    async fn delete(&self, id: &str) -> Result<(), ServiceError>;
+}
+
+// Generic service - depends on trait, not concrete type
+pub struct UserService<R: UserRepository> {
+    repo: R,
+}
+
+impl<R: UserRepository> UserService<R> {
+    pub fn new(repo: R) -> Self {
+        Self { repo }
+    }
+
+    pub async fn get_user(&self, id: &str) -> Result<User, ServiceError> {
+        self.repo.find(id).await
+    }
+}
+
+// Test with mock
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::automock;
+
+    #[automock]
+    #[async_trait::async_trait]
+    pub trait UserRepository: Send + Sync { /* ... */ }
+
+    #[tokio::test]
+    async fn test_get_user() {
+        let mut mock = MockUserRepository::new();
+        mock.expect_find()
+            .returning(|_| Ok(User { id: "1".into(), ..Default::default() }));
+
+        let service = UserService::new(mock);
+        let result = service.get_user("1").await;
+        assert!(result.is_ok());
+    }
+}
+```
+
+### Type Safety Patterns
+
+```rust
+// Use newtype pattern for semantic types
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UserId(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Email(String);
+
+impl Email {
+    pub fn new(s: impl Into<String>) -> Result<Self, ValidationError> {
+        let email = s.into();
+        if email.contains('@') {
+            Ok(Self(email))
+        } else {
+            Err(ValidationError::InvalidEmail(email))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+// ✅ GOOD: Compiler catches wrong type
+fn send_email(to: Email, subject: &str) {}
+
+// ❌ BAD: Easy to pass wrong string
+fn send_email(to: &str, subject: &str) {}
+```
+
+### Common Pitfalls
+
+```rust
+// ❌ BAD: Holding mutex across await
+async fn process(state: Arc<Mutex<State>>) {
+    let _guard = state.lock().unwrap();
+    some_async_fn().await;  // Lock held across await point!
+}
+
+// ✅ GOOD: Drop lock before await
+async fn process(state: Arc<Mutex<State>>) {
+    let data = {
+        let guard = state.lock().unwrap();
+        guard.clone()  // Copy data, drop guard
+    };
+    some_async_fn_with(data).await;
+}
+
+// ❌ BAD: Cloning Arc inside hot loop
+for item in items {
+    let state = state.clone();  // Expensive if tight loop
+    tokio::spawn(async move { /* ... */ });
+}
+
+// ✅ GOOD: Clone once outside
+let state = Arc::clone(&state);
+for item in items {
+    let state = Arc::clone(&state);
+    tokio::spawn(async move { /* ... */ });
+}
+
+// ❌ BAD: Ignoring errors
+let _ = some_important_operation();  // Silent failure
+
+// ✅ GOOD: Handle or propagate
+some_important_operation()?;  // Propagate
+// or
+if let Err(e) = some_important_operation() {
+    tracing::error!("operation failed: {e}");
+}
+```
+
+### Project Structure
+
+```
+myservice/
+├── src/
+│   ├── main.rs            # Binary entry point
+│   ├── lib.rs             # Library root (public API)
+│   ├── config.rs          # Configuration loading
+│   ├── error.rs           # Error types
+│   ├── domain/            # Domain models and logic
+│   │   ├── mod.rs
+│   │   └── user.rs
+│   ├── repository/        # Data access
+│   │   ├── mod.rs
+│   │   └── postgres.rs
+│   ├── service/           # Business logic
+│   │   ├── mod.rs
+│   │   └── user_service.rs
+│   └── api/               # HTTP/gRPC handlers
+│       ├── mod.rs
+│       └── handlers.rs
+├── tests/                 # Integration tests
+│   └── user_test.rs
+├── Cargo.toml
+└── Cargo.lock
+```
+
+### Testing Patterns
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Unit test
+    #[test]
+    fn test_email_validation() {
+        assert!(Email::new("valid@example.com").is_ok());
+        assert!(Email::new("invalid").is_err());
+    }
+
+    // Async test with tokio
+    #[tokio::test]
+    async fn test_create_user() {
+        let service = setup_test_service().await;
+        let result = service.create_user(CreateUserInput {
+            email: "test@example.com".to_string(),
+            username: "testuser".to_string(),
+        }).await;
+
+        assert!(result.is_ok());
+        let user = result.unwrap();
+        assert_eq!(user.email, "test@example.com");
+    }
+
+    // Table-driven tests
+    #[test]
+    fn test_password_strength() {
+        let cases = vec![
+            ("weak", false),
+            ("StrongPass123!", true),
+            ("short", false),
+            ("NoSpecialChar123", false),
+        ];
+
+        for (password, expected) in cases {
+            assert_eq!(
+                is_strong_password(password),
+                expected,
+                "failed for password: {password}"
+            );
         }
     }
 }
-
-// ✅ Capture self weakly
-onUpdate = { [weak self] in
-    self?.refresh()
-}
-
-// ✅ Or unowned when self is guaranteed to outlive the closure
-onUpdate = { [unowned self] in
-    self.refresh()
-}
-```
-
-### Implicit Main Thread Assumptions
-
-```swift
-// ❌ Updating UI from background thread
-Task.detached {
-    let data = try await fetch()
-    self.label.text = data.title  // ❌ UI on background thread — crash
-}
-
-// ✅ Hop to main actor for UI work
-Task.detached {
-    let data = try await fetch()
-    await MainActor.run {
-        self.label.text = data.title
-    }
-}
-```
-
-### Over-using `any` Existentials
-
-```swift
-// ❌ Existential box loses static dispatch optimization
-func process(items: [any Hashable]) { }
-
-// ✅ Generic function keeps static dispatch
-func process<T: Hashable>(items: [T]) { }
-```
-
-### String-based APIs
-
-```swift
-// ❌ Stringly-typed keys
-UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
-
-// ✅ Type-safe key wrapper or enum
-extension UserDefaults {
-    enum Key: String {
-        case hasSeenOnboarding
-    }
-    var hasSeenOnboarding: Bool {
-        get { bool(forKey: Key.hasSeenOnboarding.rawValue) }
-        set { set(newValue, forKey: Key.hasSeenOnboarding.rawValue) }
-    }
-}
 ```
 
 ---
 
-## 9. Performance
+## Swift Standards
 
-### Value Types & Copy-on-Write
+For comprehensive Swift development guidance, see the dedicated **`swift` skill** which covers:
 
-```swift
-// ✅ Swift arrays/dicts/sets use CoW — no need to defensively copy
-let snapshot = largeArray   // O(1) until mutation
+- API Design Guidelines and naming conventions
+- Optionals and error handling (including typed throws in Swift 6)
+- Swift 6 concurrency (actors, async/await, Sendable)
+- SwiftUI best practices and state management
+- Memory management and ARC
+- Testing with Swift Testing framework
 
-// ✅ For custom CoW, check uniqueness before mutating
-mutating func append(_ element: Element) {
-    if !isKnownUniquelyReferenced(&_storage) {
-        _storage = _storage.copy()
-    }
-    _storage.append(element)
-}
-```
-
-### Lazy Collections
-
-```swift
-// ✅ Use lazy to avoid intermediate allocations
-let firstActive = users.lazy
-    .filter { $0.isActive }
-    .first(where: { $0.role == .admin })
-```
-
-### Prefer `let` Over `var`
-
-```swift
-// ✅ Compiler can optimize immutable values more aggressively
-let computedTotal = items.reduce(0) { $0 + $1.price }
-```
-
-### Avoid Repeated Dynamic Dispatch
-
-```swift
-// ✅ Mark leaf classes final to eliminate vtable overhead
-final class ImageCache { }
-
-// ✅ Use Whole Module Optimization (WMO) in release builds
-// Xcode: Build Settings → Compilation Mode = Whole Module
-```
-
-### Strings & Collections
-
-```swift
-// ✅ Use reserveCapacity when final size is known
-var ids: [String] = []
-ids.reserveCapacity(expectedCount)
-
-// ✅ CharacterView is O(n) — cache count if needed
-let count = text.count   // O(n) for Swift Strings — assign to variable
-
-// ✅ Prefer Data over [UInt8] for binary buffers
-var buffer = Data(capacity: 4096)
-```
+The `swift` skill is based on authoritative sources: [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/),
+[The Swift Programming Language](https://docs.swift.org/swift-book/), [Swift Evolution](https://github.com/apple/swift-evolution),
+and WWDC best practices.
 
 ---
 
-## Quick Reference Checklist
-
-- [ ] All types use UpperCamelCase; all values/functions use lowerCamelCase
-- [ ] No force-unwrap (`!`) or force-try (`try!`) in production paths
-- [ ] Errors are typed (`enum … : Error`) and handled at the appropriate layer
-- [ ] Async code uses `async/await`; shared mutable state protected by `actor`
-- [ ] UI mutations run on `@MainActor`
-- [ ] Closures capturing `self` use `[weak self]` unless lifetime is guaranteed
-- [ ] Protocol-based dependencies to enable unit-testing with mocks
-- [ ] `swift-format` and `SwiftLint` pass cleanly
-- [ ] `struct` for data models; `class` only when reference semantics required
-- [ ] `final` on leaf classes; `let` by default
+**Remember**: Code quality is not negotiable. Clear, maintainable code enables rapid development and confident refactoring.
