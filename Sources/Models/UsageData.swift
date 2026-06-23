@@ -98,22 +98,33 @@ struct UsageResponse: Codable {
 }
 
 /// Daily usage data for charting
-struct DailyUsage: Identifiable, Codable {
-    let id = UUID()
+/// AIDEV-NOTE: Uses date-based stable ID so SwiftUI Charts hover comparisons
+/// work correctly across re-renders (UUID would regenerate each time).
+struct DailyUsage: Identifiable, Codable, Equatable {
     let date: Date
     let requests: Int
     
-    enum CodingKeys: String, CodingKey {
-        case date, requests
+    // AIDEV-NOTE: id is a stable string derived from the date's day-level timestamp
+    // (floor to nearest day in seconds) — avoids allocating a DateFormatter each call.
+    var id: String {
+        let daySeconds = floor(date.timeIntervalSinceReferenceDate / 86400) * 86400
+        return "day-\(Int(daySeconds))"
+    }
+    
+    static func == (lhs: DailyUsage, rhs: DailyUsage) -> Bool {
+        lhs.date == rhs.date && lhs.requests == rhs.requests
     }
 }
 
 /// Model usage breakdown for visualization
-struct ModelUsage: Identifiable {
-    let id = UUID()
+/// AIDEV-NOTE: Uses modelName as stable ID so SwiftUI Charts hover comparisons
+/// work correctly across re-renders (UUID would regenerate each time).
+struct ModelUsage: Identifiable, Equatable {
     let modelName: String
     let requestCount: Double
     let percentage: Double
+    
+    var id: String { modelName }
 }
 
 struct BillingSummary: Equatable {
@@ -149,103 +160,91 @@ struct ModelBillingDetail: Identifiable {
     let multiplier: Double          // Informational: Copilot premium request multiplier for this model
 }
 
-/// GitHub Copilot model multipliers for premium request billing
-/// Reference: https://docs.github.com/en/copilot/concepts/billing/copilot-requests#model-multipliers
+/// GitHub Copilot model multipliers for AI credit billing.
+/// AIDEV-NOTE: Values last synced June 2026 from:
+/// https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans
+/// Run "Update Multipliers" in the app to pull fresh values.
 enum CopilotModelMultipliers {
-    /// Known model multipliers from GitHub docs (for paid plans)
+    /// Known model multipliers (for legacy annual-plan billing).
+    /// 0.0 = included/free; >0 = AI credits consumed per interaction.
     static let multipliers: [String: Double] = [
         // Claude models
-        "Claude Haiku 4.5": 0.33,
-        "Claude Opus 4.5": 3.0,
-        "Claude Opus 4.6": 3.0,
-        "Claude Opus 4.6 (fast mode)": 30.0,
-        "Claude Sonnet 4": 1.0,
-        "Claude Sonnet 4.5": 1.0,
-        "Claude Sonnet 4.6": 1.0,
-        
+        "Claude Haiku 4.5":            0.33,
+        "Claude Opus 4.5":            15.0,
+        "Claude Opus 4.6":            27.0,
+        "Claude Opus 4.7":            27.0,
+        "Claude Opus 4.8":            27.0,
+        "Claude Sonnet 4.5":           6.0,
+        "Claude Sonnet 4.6":           9.0,
+
         // Gemini models
-        "Gemini 2.5 Pro": 1.0,
-        "Gemini 3 Flash": 0.33,
-        "Gemini 3 Pro": 1.0,
-        "Gemini 3.1 Pro": 1.0,
-        
-        // GPT models (included/free on paid plans)
-        "GPT-4.1": 0.0,
-        "GPT-4o": 0.0,
-        "GPT-5 mini": 0.0,
-        "GPT-5.1": 1.0,
-        "GPT-5.1-Codex": 1.0,
-        "GPT-5.1-Codex-Mini": 0.33,
-        "GPT-5.1-Codex-Max": 1.0,
-        "GPT-5.2": 1.0,
-        "GPT-5.2-Codex": 1.0,
-        "GPT-5.3-Codex": 1.0,
-        "GPT-5.4": 1.0,
-        "GPT-5.4 mini": 0.33,
-        
+        "Gemini 2.5 Pro":              1.0,
+        "Gemini 3 Flash":              0.33,
+        "Gemini 3 Pro":                6.0,
+        "Gemini 3.1 Pro":              6.0,
+        "Gemini 3.5 Flash":           14.0,
+
+        // GPT models
+        "GPT-4o":                      0.33,
+        "GPT-4o mini":                 0.33,
+        "GPT-5 mini":                  0.33,
+        "GPT-5.1":                     3.0,
+        "GPT-5.1-Codex":               3.0,
+        "GPT-5.1-Codex-Mini":          0.33,
+        "GPT-5.1-Codex-Max":           3.0,
+        "GPT-5.3-Codex":               6.0,
+        "GPT-5.4":                     6.0,
+        "GPT-5.4 mini":                6.0,
+        "GPT-5.5":                    57.0,
+
         // Other models
-        "Grok Code Fast 1": 0.25,
-        "Raptor mini": 0.0,
+        "MAI-Code-1-Flash":            0.33,
+        "Raptor mini":                 0.33,
     ]
-    
-    /// Get multiplier for a model name (supports partial matching)
+
+    /// Get multiplier for a model name (supports partial matching for unknown variants)
     static func multiplier(for modelName: String) -> Double {
         // Direct match
         if let mult = multipliers[modelName] {
             return mult
         }
-        
+
         // Partial match (case-insensitive)
-        let lowercased = modelName.lowercased()
-        
-        // Claude models
-        if lowercased.contains("opus") {
-            if lowercased.contains("fast") {
-                return 30.0
-            }
+        let lower = modelName.lowercased()
+
+        // Claude — order matters: check Opus/Sonnet/Haiku before generic "claude"
+        if lower.contains("opus")   { return 27.0 }
+        if lower.contains("sonnet") { return 6.0  }
+        if lower.contains("haiku")  { return 0.33 }
+
+        // GPT
+        if lower.contains("gpt-5.5")   { return 57.0 }
+        if lower.contains("gpt-5.4")   { return 6.0  }
+        if lower.contains("gpt-5.3")   { return 6.0  }
+        if lower.contains("gpt-5.1")   {
+            if lower.contains("mini") { return 0.33 }
             return 3.0
         }
-        if lowercased.contains("sonnet") {
-            return 1.0
+        if lower.contains("gpt-5") && lower.contains("mini") { return 0.33 }
+        if lower.contains("gpt-4o")    { return 0.33 }
+
+        // Gemini
+        if lower.contains("gemini") {
+            if lower.contains("flash") { return 0.33 }
+            return 6.0
         }
-        if lowercased.contains("haiku") {
-            return 0.33
-        }
-        
-        // GPT models - check for included models
-        if lowercased.contains("gpt-4o") || lowercased.contains("gpt-4.1") || lowercased.contains("gpt-5 mini") {
-            return 0.0
-        }
-        if lowercased.contains("gpt-5") {
-            if lowercased.contains("mini") {
-                return 0.33
-            }
-            return 1.0
-        }
-        
-        // Gemini models
-        if lowercased.contains("gemini") {
-            if lowercased.contains("flash") {
-                return 0.33
-            }
-            return 1.0
-        }
-        
+
         // Default to 1.0 for unknown models
         return 1.0
     }
     
     /// Format multiplier for display
+    /// AIDEV-NOTE: "Included" (0.0) was the old free-model marker; kept for legacy data.
     static func formatMultiplier(_ multiplier: Double) -> String {
-        if multiplier == 0 {
-            return "Included"
-        } else if multiplier < 1 {
-            return String(format: "%.2fx", multiplier)
-        } else if multiplier == floor(multiplier) {
-            return String(format: "%.0fx", multiplier)
-        } else {
-            return String(format: "%.1fx", multiplier)
-        }
+        if multiplier == 0     { return "Included" }
+        if multiplier < 1      { return String(format: "%.2fx", multiplier) }
+        if multiplier == floor(multiplier) { return String(format: "%.0fx", multiplier) }
+        return String(format: "%.1fx", multiplier)
     }
 }
 

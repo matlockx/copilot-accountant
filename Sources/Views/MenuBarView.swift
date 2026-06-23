@@ -87,7 +87,7 @@ struct MenuBarView: View {
                         .font(.headline)
                 }
                 
-                Text("\(used) / \(budget) requests")
+                Text("\(used) / \(budget) credits")
                     .font(.title2)
                     .bold()
                 

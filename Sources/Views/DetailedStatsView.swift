@@ -1,83 +1,70 @@
 import SwiftUI
 import Charts
 
-/// Detailed statistics window with charts
+// AIDEV-NOTE: Reworked DetailedStatsView — complete rewrite for clarity, robustness, and
+// visual polish. Key fixes: stable IDs on ModelUsage/DailyUsage for hover, adaptive
+// table layout, collapsible multiplier config, better card design.
+
+/// Detailed statistics window with charts and billing breakdown
 @available(macOS 14.0, *)
 struct DetailedStatsView: View {
     @ObservedObject var tracker: UsageTracker
     @StateObject private var multiplierService = ModelMultiplierService.shared
-    @State private var isUpdatingMultipliers = false
-    @State private var multiplierUpdateError: String? = nil
-    @State private var multiplierUpdateSuccess = false
+    
+    // MARK: - Hover / tooltip state
     @State private var hoveredDay: DailyUsage? = nil
     @State private var tooltipPosition: CGPoint = .zero
     @State private var hoveredModel: ModelUsage? = nil
     @State private var pieTooltipPosition: CGPoint = .zero
+    
+    // MARK: - Multiplier update state
+    @State private var isUpdatingMultipliers = false
+    @State private var multiplierUpdateError: String? = nil
+    @State private var multiplierUpdateSuccess = false
     @State private var multipliersURL: String = ModelMultiplierService.shared.multipliersURL
+    @State private var showMultiplierConfig = false
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // Title
-                Text("Premium request analytics")
-                    .font(.title)
-                    .bold()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 20) {
+                // Header
+                headerSection
                 
-                // Billing cards
                 if let usage = tracker.currentUsage {
+                    // Top billing summary cards
                     billingCardsSection(usage: usage)
-                } else {
-                    emptyStateCard(DetailedStatsEmptyState.noUsage)
-                }
-                
-                // Spending budget card (F018)
-                if let budget = tracker.spendingBudget {
-                    spendingBudgetCard(budget: budget)
-                }
-                
-                Divider()
-                
-                // Usage breakdown section
-                if let usage = tracker.currentUsage {
+                    
+                    // Spending budget card (F018)
+                    if let budget = tracker.spendingBudget {
+                        spendingBudgetCard(budget: budget)
+                    }
+                    
+                    // Model usage breakdown: pie chart + billing table
                     usageBreakdownSection(usage: usage)
-                }
-                
-                Divider()
-                
-                // Daily usage chart with tooltip
-                if !tracker.dailyUsage.isEmpty {
-                    dailyUsageChart
-                } else {
-                    emptyStateCard(DetailedStatsEmptyState.noDailyData)
-                }
-                
-                Divider()
-                
-                // All Models catalog
-                allModelsCatalogSection
-                
-                Divider()
-                
-                // Model multiplier update section
-                multiplierUpdateSection
-                
-                Divider()
-                 
-                // Product breakdown
-                if let usage = tracker.currentUsage {
+                    
+                    // Daily usage bar chart
+                    if !tracker.dailyUsage.isEmpty {
+                        dailyUsageChartSection
+                    } else {
+                        emptyCard(DetailedStatsEmptyState.noDailyData)
+                    }
+                    
+                    // All models catalog
+                    allModelsCatalogSection
+                    
+                    // Model multiplier management
+                    multiplierSection
+                    
+                    // Product breakdown
                     productBreakdownSection(usage: usage)
-                }
-                
-                // Last update info
-                if let lastUpdate = tracker.lastUpdateTime {
-                    Text("Last updated: \(formatDate(lastUpdate))")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    
+                    // Footer
+                    footerSection
+                } else {
+                    emptyCard(DetailedStatsEmptyState.noUsage)
                 }
             }
-            .padding()
+            .padding(24)
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .frame(
@@ -91,18 +78,47 @@ struct DetailedStatsView: View {
         )
     }
     
-    // MARK: - Empty State
+    // MARK: - Header
     
-    private func emptyStateCard(_ message: String) -> some View {
-        Text(message)
-            .font(.body)
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, minHeight: 80)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    private var headerSection: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI Credit Analytics")
+                    .font(.title.bold())
+                if let usage = tracker.currentUsage {
+                    Text("Usage for \(usage.billingPeriodDescription)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            if tracker.isLoading {
+                ProgressView()
+                    .scaleEffect(0.7)
+            }
+        }
     }
     
-    // MARK: - Billing Cards Section
+    // MARK: - Empty State
+    
+    private func emptyCard(_ message: String) -> some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 8) {
+                Image(systemName: "chart.bar.xaxis")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+                Text(message)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(24)
+        .background(cardBackground)
+    }
+    
+    // MARK: - Billing Summary Cards
     
     private func billingCardsSection(usage: UsageResponse) -> some View {
         let summary = usage.billingSummary(includedRequests: tracker.config.monthlyBudget)
@@ -110,39 +126,39 @@ struct DetailedStatsView: View {
         let percentage = tracker.config.usagePercentage(used: summary.usedRequests)
         
         return HStack(spacing: 16) {
-            // Billed premium requests card
-            billingCard {
+            // Billed AI credits card
+            card {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Billed premium requests")
-                        .font(.headline)
+                    Label("Billed AI Credits", systemImage: "dollarsign.circle")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.secondary)
                     
                     Text(currency(summary.netCost))
-                        .font(.system(size: 36, weight: .bold))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
                     
                     if summary.netCost == 0 {
-                        Text("All usage covered by included requests")
+                        Text("All usage covered by included credits")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.green)
                     } else {
-                        Text("\(summary.overageRequests) requests beyond included limit")
+                        Text("\(summary.overageRequests) credits beyond included limit")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.orange)
                     }
                 }
             }
             
-            // Included premium requests card
-            billingCard {
+            // Included AI credits card
+            card {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Included premium requests consumed")
-                        .font(.headline)
+                    Label("Included Credits Consumed", systemImage: "gauge.with.dots.needle.33percent")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.secondary)
                     
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(String(format: "%.2f", totalUsed))
-                            .font(.system(size: 36, weight: .bold))
-                        Text("of \(tracker.config.monthlyBudget) included")
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(String(format: "%.0f", totalUsed))
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                        Text("of \(tracker.config.monthlyBudget)")
                             .font(.body)
                             .foregroundColor(.secondary)
                     }
@@ -150,156 +166,104 @@ struct DetailedStatsView: View {
                     ProgressView(value: min(percentage, 100), total: 100)
                         .tint(statusColor(percentage: percentage))
                     
-                    Text("Monthly limit resets in \(usage.daysUntilReset) days on \(usage.resetDateDescription)")
+                    Text("Resets in \(usage.daysUntilReset) days · \(usage.resetDateDescription)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
         }
-    }
-    
-    private func billingCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - Spending Budget Card (F018)
     
     private func spendingBudgetCard(budget: SpendingBudgetSummary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Spending Budget")
-                    .font(.headline)
-                
-                Spacer()
-                
-                // Hard/soft cap indicator
-                if budget.preventFurtherUsage {
-                    Label("Hard cap", systemImage: "exclamationmark.octagon.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                } else {
-                    Label("Soft cap", systemImage: "info.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            HStack(spacing: 24) {
-                // Budget amount
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Budget")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(currency(budget.budgetAmount))
-                        .font(.title2.bold())
-                }
-                
-                // Amount spent
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Spent")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(currency(budget.amountSpent))
-                        .font(.title2.bold())
-                        .foregroundColor(budget.isCapReached ? .red : .primary)
-                }
-                
-                // Remaining
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Remaining")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(currency(budget.remaining))
-                        .font(.title2.bold())
-                        .foregroundColor(budget.remaining > 0 ? .green : .red)
-                }
-                
-                Spacer()
-            }
-            
-            // Progress bar
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: min(budget.percentUsed, 100), total: 100)
-                    .tint(spendingBudgetColor(percent: budget.percentUsed))
-                
+        card {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text(String(format: "%.1f%% of budget used", budget.percentUsed))
-                        .font(.caption)
+                    Label("Spending Budget", systemImage: "creditcard")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.secondary)
                     
                     Spacer()
                     
-                    if budget.maxAdditionalRequests > 0 {
-                        Text("\(budget.maxAdditionalRequests) more premium requests possible")
+                    if budget.preventFurtherUsage {
+                        capsuleBadge("Hard cap", color: .orange)
+                    } else {
+                        capsuleBadge("Soft cap", color: .secondary)
+                    }
+                }
+                
+                HStack(spacing: 32) {
+                    metricColumn(label: "Budget", value: currency(budget.budgetAmount))
+                    metricColumn(label: "Spent", value: currency(budget.amountSpent),
+                                 color: budget.isCapReached ? .red : .primary)
+                    metricColumn(label: "Remaining", value: currency(budget.remaining),
+                                 color: budget.remaining > 0 ? .green : .red)
+                    Spacer()
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: min(budget.percentUsed, 100), total: 100)
+                        .tint(spendingBudgetColor(percent: budget.percentUsed))
+                    
+                    HStack {
+                        Text(String(format: "%.1f%% of budget used", budget.percentUsed))
                             .font(.caption)
                             .foregroundColor(.secondary)
-                    } else if budget.isCapReached {
-                        Text("Budget exhausted")
+                        Spacer()
+                        if budget.maxAdditionalRequests > 0 {
+                            Text("\(budget.maxAdditionalRequests) more credits possible")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if budget.isCapReached {
+                            Text("Budget exhausted")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
+                
+                if budget.isCapReached && budget.preventFurtherUsage {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Spending cap reached. AI credits paused until next cycle.")
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
-            
-            // Cap reached warning
-            if budget.isCapReached && budget.preventFurtherUsage {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                    Text("Spending cap reached. Premium request usage will stop until next billing cycle.")
+        }
+    }
+    
+    // MARK: - Usage Breakdown Section (Pie Chart + Table)
+    
+    private func usageBreakdownSection(usage: UsageResponse) -> some View {
+        card {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Label("Usage Breakdown", systemImage: "chart.pie")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("Price per request: \(currency(usage.pricePerRequest))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                .padding(.top, 4)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
-    }
-    
-    private func spendingBudgetColor(percent: Double) -> Color {
-        if percent >= 100 {
-            return .red
-        } else if percent >= 80 {
-            return .orange
-        } else if percent >= 60 {
-            return .yellow
-        } else {
-            return .green
-        }
-    }
-    
-    // MARK: - Usage Breakdown Section
-    
-    private func usageBreakdownSection(usage: UsageResponse) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Usage breakdown")
-                .font(.headline)
-            
-            Text("Usage for \(usage.billingPeriodDescription). Price per premium request is \(currency(usage.pricePerRequest)).")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            HStack(alignment: .top, spacing: 24) {
-                modelPieChart()
-                    .frame(width: 250, height: 250)
                 
-                modelBillingTable(usage: usage)
+                HStack(alignment: .top, spacing: 20) {
+                    modelPieChart()
+                        .frame(width: 220, height: 220)
+                    
+                    modelBillingTable(usage: usage)
+                }
             }
         }
     }
     
     private func modelPieChart() -> some View {
         let modelUsage = tracker.getModelUsage()
-
+        
         return ZStack(alignment: .topLeading) {
             Chart(modelUsage) { item in
                 SectorMark(
@@ -308,6 +272,8 @@ struct DetailedStatsView: View {
                     angularInset: 1
                 )
                 .foregroundStyle(by: .value("Model", item.modelName))
+                // AIDEV-NOTE: Uses modelName-based stable ID so comparison
+                // survives re-renders (old UUID approach always mismatched).
                 .opacity(hoveredModel == nil || hoveredModel?.id == item.id ? 1.0 : 0.4)
                 .annotation(position: .overlay) {
                     if item.percentage > 8 && hoveredModel?.id != item.id {
@@ -327,26 +293,23 @@ struct DetailedStatsView: View {
                             switch phase {
                             case .active(let location):
                                 pieTooltipPosition = location
-                                // Find which sector is hovered using angle from center
                                 let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
                                 let dx = location.x - center.x
                                 let dy = location.y - center.y
-                                let distFromCenter = sqrt(dx * dx + dy * dy)
-                                let minRadius = min(geo.size.width, geo.size.height) / 2 * 0.5
-                                let maxRadius = min(geo.size.width, geo.size.height) / 2
-                                guard distFromCenter > minRadius && distFromCenter < maxRadius else {
+                                let dist = sqrt(dx * dx + dy * dy)
+                                let outerR = min(geo.size.width, geo.size.height) / 2
+                                let innerR = outerR * 0.5
+                                guard dist > innerR && dist < outerR else {
                                     hoveredModel = nil
                                     return
                                 }
-                                // Angle: atan2 gives angle from positive X axis; chart starts at top (-π/2)
                                 var angle = atan2(dy, dx) + .pi / 2
                                 if angle < 0 { angle += 2 * .pi }
-                                let totalRequests = modelUsage.reduce(0) { $0 + $1.requestCount }
-                                guard totalRequests > 0 else { return }
+                                let total = modelUsage.reduce(0.0) { $0 + $1.requestCount }
+                                guard total > 0 else { return }
                                 var cumulative = 0.0
                                 for model in modelUsage {
-                                    let slice = (model.requestCount / totalRequests) * 2 * .pi
-                                    cumulative += slice
+                                    cumulative += (model.requestCount / total) * 2 * .pi
                                     if angle <= cumulative {
                                         hoveredModel = model
                                         return
@@ -359,162 +322,115 @@ struct DetailedStatsView: View {
                         }
                 }
             }
-
-            // Tooltip card
+            
+            // Tooltip
             if let hovered = hoveredModel {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(hovered.modelName)
-                        .font(.caption.bold())
-                        .lineLimit(2)
-                    Text(String(format: "%.0f requests", hovered.requestCount))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(String(format: "%.1f%%", hovered.percentage))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(nsColor: .windowBackgroundColor))
-                        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
-                )
-                .fixedSize()
-                .position(x: min(pieTooltipPosition.x + 12, 200), y: pieTooltipPosition.y - 10)
-                .allowsHitTesting(false)
-                .transition(.opacity.animation(.easeInOut(duration: 0.1)))
+                pieTooltipView(for: hovered)
+                    .position(
+                        x: clamp(pieTooltipPosition.x + 14, min: 50, max: 190),
+                        y: pieTooltipPosition.y - 12
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.1)))
             }
         }
+    }
+    
+    private func pieTooltipView(for model: ModelUsage) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(model.modelName)
+                .font(.caption.bold())
+                .lineLimit(2)
+            Text(String(format: "%.0f credits", model.requestCount))
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(String(format: "%.1f%%", model.percentage))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(nsColor: .windowBackgroundColor))
+                .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+        )
+        .fixedSize()
     }
     
     private func modelBillingTable(usage: UsageResponse) -> some View {
         let details = usage.modelBillingDetails()
         let totalRequests = details.reduce(0.0) { $0 + $1.totalRequests }
-
+        
         return VStack(alignment: .leading, spacing: 0) {
-            // Header row
-            HStack(spacing: 0) {
-                Text("Model")
-                    .frame(width: 130, alignment: .leading)
-                Text("Share")
-                    .frame(width: 50, alignment: .trailing)
-                Text("Multiplier")
-                    .frame(width: 72, alignment: .trailing)
-                Text("Included")
-                    .frame(width: 72, alignment: .trailing)
-                Text("Billed")
-                    .frame(width: 60, alignment: .trailing)
-                Text("Gross")
-                    .frame(width: 80, alignment: .trailing)
-                Text("Billed")
-                    .frame(width: 80, alignment: .trailing)
+            // Header
+            tableRow(isHeader: true) {
+                Text("Model").frame(minWidth: 100, alignment: .leading)
+                Text("Share").frame(width: 48, alignment: .trailing)
+                Text("Multi.").frame(width: 56, alignment: .trailing)
+                Text("Included").frame(width: 60, alignment: .trailing)
+                Text("Billed").frame(width: 56, alignment: .trailing)
+                Text("Gross $").frame(width: 60, alignment: .trailing)
+                Text("Billed $").frame(width: 60, alignment: .trailing)
             }
-            .font(.caption.bold())
-            .foregroundColor(.secondary)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 8)
-            .background(Color(nsColor: .controlBackgroundColor))
-            
-            // Sub-labels
-            HStack(spacing: 0) {
-                Text("")
-                    .frame(width: 130, alignment: .leading)
-                Text("")
-                    .frame(width: 50, alignment: .trailing)
-                Text("")
-                    .frame(width: 72, alignment: .trailing)
-                Text("requests")
-                    .frame(width: 72, alignment: .trailing)
-                Text("requests")
-                    .frame(width: 60, alignment: .trailing)
-                Text("amount")
-                    .frame(width: 80, alignment: .trailing)
-                Text("amount")
-                    .frame(width: 80, alignment: .trailing)
-            }
-            .font(.caption2)
-            .foregroundColor(.secondary)
-            .padding(.bottom, 4)
-            .padding(.horizontal, 8)
-            .background(Color(nsColor: .controlBackgroundColor))
             
             Divider()
             
             // Data rows
             ForEach(details) { detail in
-                let sharePct = totalRequests > 0 ? (detail.totalRequests / totalRequests) * 100 : 0
-                HStack(spacing: 0) {
+                let share = totalRequests > 0
+                    ? (detail.totalRequests / totalRequests) * 100 : 0
+                
+                tableRow(isHeader: false) {
                     Text(detail.model)
-                        .frame(width: 130, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
-
-                    Text(String(format: "%.1f%%", sharePct))
-                        .frame(width: 50, alignment: .trailing)
+                        .frame(minWidth: 100, alignment: .leading)
+                    Text(String(format: "%.0f%%", share))
                         .foregroundColor(.secondary)
-                    
+                        .frame(width: 48, alignment: .trailing)
                     Text(CopilotModelMultipliers.formatMultiplier(detail.multiplier))
-                        .frame(width: 72, alignment: .trailing)
                         .foregroundColor(multiplierColor(detail.multiplier))
-                    
-                    Text(formatQuantity(detail.includedRequests))
-                        .frame(width: 72, alignment: .trailing)
-                    
-                    Text(formatQuantity(detail.billedRequests))
+                        .frame(width: 56, alignment: .trailing)
+                    Text(formatQty(detail.includedRequests))
                         .frame(width: 60, alignment: .trailing)
-                    
+                    Text(formatQty(detail.billedRequests))
+                        .frame(width: 56, alignment: .trailing)
                     Text(currency(detail.grossAmount))
-                        .frame(width: 80, alignment: .trailing)
-                    
+                        .frame(width: 60, alignment: .trailing)
                     Text(currency(detail.billedAmount))
-                        .frame(width: 80, alignment: .trailing)
                         .fontWeight(detail.billedAmount > 0 ? .semibold : .regular)
+                        .frame(width: 60, alignment: .trailing)
                 }
-                .font(.body.monospacedDigit())
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                
                 Divider()
             }
             
-            // Totals row
+            // Totals
             if !details.isEmpty {
-                HStack(spacing: 0) {
-                    Text("Total")
-                        .fontWeight(.semibold)
-                        .frame(width: 130, alignment: .leading)
-                    
+                tableRow(isHeader: false, isTotal: true) {
+                    Text("Total").fontWeight(.semibold)
+                        .frame(minWidth: 100, alignment: .leading)
                     Text("100%")
-                        .frame(width: 50, alignment: .trailing)
                         .foregroundColor(.secondary)
-                    
-                    Text("")
-                        .frame(width: 72, alignment: .trailing)
-                    
-                    Text(formatQuantity(details.reduce(0) { $0 + $1.includedRequests }))
-                        .frame(width: 72, alignment: .trailing)
-                    
-                    Text(formatQuantity(details.reduce(0) { $0 + $1.billedRequests }))
+                        .frame(width: 48, alignment: .trailing)
+                    Text("").frame(width: 56, alignment: .trailing)
+                    Text(formatQty(details.reduce(0) { $0 + $1.includedRequests }))
                         .frame(width: 60, alignment: .trailing)
-                    
+                    Text(formatQty(details.reduce(0) { $0 + $1.billedRequests }))
+                        .frame(width: 56, alignment: .trailing)
                     Text(currency(details.reduce(0) { $0 + $1.grossAmount }))
-                        .frame(width: 80, alignment: .trailing)
-                    
+                        .frame(width: 60, alignment: .trailing)
                     Text(currency(details.reduce(0) { $0 + $1.billedAmount }))
-                        .frame(width: 80, alignment: .trailing)
                         .fontWeight(.semibold)
+                        .frame(width: 60, alignment: .trailing)
                 }
-                .font(.body.monospacedDigit())
-                .padding(.vertical, 8)
-                .padding(.horizontal, 8)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
             }
         }
+        .font(.body.monospacedDigit())
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
@@ -523,100 +439,116 @@ struct DetailedStatsView: View {
         )
     }
     
-    private func multiplierColor(_ multiplier: Double) -> Color {
-        if multiplier == 0 {
-            return .green
-        } else if multiplier < 1 {
-            return .blue
-        } else if multiplier == 1 {
-            return .primary
-        } else if multiplier <= 3 {
-            return .orange
-        } else {
-            return .red
+    @ViewBuilder
+    private func tableRow<Content: View>(
+        isHeader: Bool = false,
+        isTotal: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 0) {
+            content()
         }
+        .font(isHeader ? .caption.bold() : .body.monospacedDigit())
+        .foregroundColor(isHeader ? .secondary : .primary)
+        .padding(.vertical, isHeader ? 6 : 5)
+        .padding(.horizontal, 8)
+        .background(
+            (isHeader || isTotal)
+                ? Color(nsColor: .controlBackgroundColor)
+                : Color.clear
+        )
     }
     
-    // MARK: - Daily Usage Chart with Tooltip
+    // MARK: - Daily Usage Chart
     
-    private var dailyUsageChart: some View {
-        VStack(alignment: .leading) {
-            Text("Daily Usage This Month")
-                .font(.headline)
-                .padding(.bottom, 5)
-            
-            ZStack(alignment: .topLeading) {
-                Chart(tracker.dailyUsage) { item in
-                    BarMark(
-                        x: .value("Date", item.date, unit: .day),
-                        y: .value("Requests", item.requests)
-                    )
-                    .foregroundStyle(
-                        hoveredDay?.date == item.date
-                            ? Color.blue
-                            : (hoveredDay != nil
-                                ? Color.blue.opacity(ChartTooltipConfiguration.dimmedOpacity)
-                                : Color.blue.opacity(0.8))
-                    )
-                }
-                .frame(height: 200)
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 5)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.day())
-                    }
-                }
-                .chartOverlay { proxy in
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(.clear)
-                            .contentShape(Rectangle())
-                            .onContinuousHover { phase in
-                                switch phase {
-                                case .active(let location):
-                                    guard let plotFrame = proxy.plotFrame else { return }
-                                    let xPosition = location.x - geometry[plotFrame].origin.x
-                                    let yPosition = location.y - geometry[plotFrame].origin.y
-                                    
-                                    if let date: Date = proxy.value(atX: xPosition) {
-                                        let calendar = Calendar.current
-                                        let matchedDay = tracker.dailyUsage.first { day in
-                                            calendar.isDate(day.date, inSameDayAs: date)
-                                        }
-                                        hoveredDay = matchedDay
-                                        tooltipPosition = CGPoint(
-                                            x: location.x,
-                                            y: yPosition
-                                        )
-                                    }
-                                case .ended:
-                                    hoveredDay = nil
-                                }
-                            }
-                    }
-                }
+    private var dailyUsageChartSection: some View {
+        card {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Daily Usage This Month", systemImage: "chart.bar")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.secondary)
                 
-                // Tooltip overlay
-                if let day = hoveredDay {
-                    chartTooltip(day: day)
-                        .offset(x: tooltipPosition.x - 60, y: max(0, tooltipPosition.y - 70))
-                        .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-                        .allowsHitTesting(false)
+                ZStack(alignment: .topLeading) {
+                    Chart(tracker.dailyUsage) { item in
+                        BarMark(
+                            x: .value("Date", item.date, unit: .day),
+                            y: .value("Requests", item.requests)
+                        )
+                        .foregroundStyle(barColor(for: item))
+                        .cornerRadius(2)
+                    }
+                    .frame(height: 180)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .day, count: 5)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.day())
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { _ in
+                            AxisGridLine()
+                            AxisValueLabel()
+                        }
+                    }
+                    .chartOverlay { proxy in
+                        GeometryReader { geometry in
+                            Rectangle()
+                                .fill(.clear)
+                                .contentShape(Rectangle())
+                                .onContinuousHover { phase in
+                                    switch phase {
+                                    case .active(let location):
+                                        guard let plotFrame = proxy.plotFrame else { return }
+                                        let xPos = location.x - geometry[plotFrame].origin.x
+                                        let yPos = location.y - geometry[plotFrame].origin.y
+                                        if let date: Date = proxy.value(atX: xPos) {
+                                            let cal = Calendar.current
+                                            hoveredDay = tracker.dailyUsage.first {
+                                                cal.isDate($0.date, inSameDayAs: date)
+                                            }
+                                            tooltipPosition = CGPoint(x: location.x, y: yPos)
+                                        }
+                                    case .ended:
+                                        hoveredDay = nil
+                                    }
+                                }
+                        }
+                    }
+                    
+                    // Tooltip
+                    if let day = hoveredDay {
+                        dailyTooltipView(day: day)
+                            .offset(
+                                x: tooltipPosition.x - 60,
+                                y: max(0, tooltipPosition.y - 65)
+                            )
+                            .allowsHitTesting(false)
+                            .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+                    }
                 }
             }
         }
     }
     
-    private func chartTooltip(day: DailyUsage) -> some View {
+    private func barColor(for item: DailyUsage) -> Color {
+        if hoveredDay?.id == item.id {
+            return .blue
+        } else if hoveredDay != nil {
+            return .blue.opacity(ChartTooltipConfiguration.dimmedOpacity)
+        } else {
+            return .blue.opacity(0.8)
+        }
+    }
+    
+    private func dailyTooltipView(day: DailyUsage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(formatTooltipDate(day.date))
                 .font(.caption.weight(.semibold))
-            
             HStack(spacing: 4) {
                 Circle()
                     .fill(.blue)
                     .frame(width: 6, height: 6)
-                Text("\(day.requests) requests")
+                Text("\(day.requests) credits")
                     .font(.caption.monospacedDigit())
             }
         }
@@ -630,28 +562,30 @@ struct DetailedStatsView: View {
         )
     }
     
-    // MARK: - All Models Catalog Section
+    // MARK: - All Models Catalog
     
     private var allModelsCatalogSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("All Models")
-                .font(.headline)
-            
-            Text("Complete catalog of Copilot models with multipliers and usage status.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            let multipliers = multiplierService.effectiveMultipliers()
-            let usageByModel = tracker.currentUsage?.usageByModel ?? [:]
-            let catalog = ModelMultiplierService.buildCatalog(
-                knownMultipliers: multipliers,
-                usageByModel: usageByModel
-            )
-            
-            if catalog.isEmpty {
-                emptyStateCard(DetailedStatsEmptyState.noModels)
-            } else {
-                modelCatalogGrid(entries: catalog)
+        let multipliers = multiplierService.effectiveMultipliers()
+        let usageByModel = tracker.currentUsage?.usageByModel ?? [:]
+        let catalog = ModelMultiplierService.buildCatalog(
+            knownMultipliers: multipliers,
+            usageByModel: usageByModel
+        )
+        
+        return card {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("All Models", systemImage: "cpu")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.secondary)
+                
+                if catalog.isEmpty {
+                    Text(DetailedStatsEmptyState.noModels)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    modelCatalogGrid(entries: catalog)
+                }
             }
         }
     }
@@ -660,19 +594,15 @@ struct DetailedStatsView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 0) {
-                Text("Model")
-                    .frame(width: 180, alignment: .leading)
-                Text("Multiplier")
-                    .frame(width: 80, alignment: .trailing)
-                Text("Usage")
-                    .frame(width: 80, alignment: .trailing)
-                Text("Status")
-                    .frame(width: 90, alignment: .trailing)
+                Text("Model").frame(minWidth: 160, alignment: .leading)
+                Text("Multiplier").frame(width: 80, alignment: .trailing)
+                Text("Usage").frame(width: 70, alignment: .trailing)
+                Text("Status").frame(width: 80, alignment: .trailing)
             }
             .font(.caption.bold())
             .foregroundColor(.secondary)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
             .background(Color(nsColor: .controlBackgroundColor))
             
             Divider()
@@ -680,34 +610,31 @@ struct DetailedStatsView: View {
             ForEach(entries) { entry in
                 HStack(spacing: 0) {
                     Text(entry.name)
-                        .frame(width: 180, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
+                        .frame(minWidth: 160, alignment: .leading)
                     
-                    // Multiplier badge
                     Text(CopilotModelMultipliers.formatMultiplier(entry.multiplier))
                         .font(.body.monospacedDigit().weight(.medium))
                         .foregroundColor(multiplierColor(entry.multiplier))
                         .frame(width: 80, alignment: .trailing)
                     
-                    // Usage
-                    if entry.usage > 0 {
-                        Text(formatQuantity(entry.usage))
-                            .font(.body.monospacedDigit())
-                            .frame(width: 80, alignment: .trailing)
-                    } else {
-                        Text("—")
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .trailing)
+                    Group {
+                        if entry.usage > 0 {
+                            Text(formatQty(entry.usage))
+                        } else {
+                            Text("—").foregroundColor(.secondary)
+                        }
                     }
+                    .font(.body.monospacedDigit())
+                    .frame(width: 70, alignment: .trailing)
                     
-                    // Status badge
                     statusBadge(entry.status)
-                        .frame(width: 90, alignment: .trailing)
+                        .frame(width: 80, alignment: .trailing)
                 }
                 .font(.body)
-                .padding(.vertical, 5)
-                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 10)
                 .opacity(entry.usage > 0 ? 1.0 : 0.6)
                 
                 Divider()
@@ -724,15 +651,11 @@ struct DetailedStatsView: View {
     private func statusBadge(_ status: ModelStatus) -> some View {
         let (text, color): (String, Color) = {
             switch status {
-            case .used:
-                return ("Used", .green)
-            case .available:
-                return ("Available", .secondary)
-            case .free:
-                return ("Free", .blue)
+            case .used:      return ("Used", .green)
+            case .available: return ("Available", .secondary)
+            case .free:      return ("Free", .blue)
             }
         }()
-        
         return Text(text)
             .font(.caption.weight(.medium))
             .padding(.horizontal, 8)
@@ -742,90 +665,203 @@ struct DetailedStatsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
     
-    // MARK: - Multiplier Update Section
+    // MARK: - Multiplier Section
     
-    private var multiplierUpdateSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Model Multipliers")
-                .font(.headline)
-            
-            Text("Each model has a multiplier that determines how many premium requests it consumes. For example, Claude Opus (3x) uses 3 premium requests per interaction.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            // Legend
-            HStack(spacing: 16) {
-                multiplierLegendItem(label: "Included", color: .green, description: "Free on paid plans")
-                multiplierLegendItem(label: "< 1x", color: .blue, description: "Discounted")
-                multiplierLegendItem(label: "1x", color: .primary, description: "Standard")
-                multiplierLegendItem(label: "> 1x", color: .orange, description: "Premium")
-            }
-            .font(.caption)
-            .padding(.vertical, 4)
-            
-            // Source URL field
-            HStack(spacing: 8) {
-                Text("Source URL:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextField("Multiplier data URL", text: $multipliersURL)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption.monospaced())
-                    .onSubmit {
-                        multiplierService.multipliersURL = multipliersURL
-                    }
-                Button {
-                    multipliersURL = ModelMultiplierConfiguration.defaultMultipliersURL
-                    multiplierService.multipliersURL = multipliersURL
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.caption)
+    private var multiplierSection: some View {
+        card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("Model Multipliers", systemImage: "function")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("Updated: \(multiplierService.lastUpdateDescription)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
-                .buttonStyle(.plain)
-                .help("Reset to default URL")
-            }
-            
-            // Update button + status
-            HStack(spacing: 12) {
-                Button {
-                    multiplierService.multipliersURL = multipliersURL
-                    Task { await updateMultipliers() }
-                } label: {
-                    HStack(spacing: 6) {
-                        if isUpdatingMultipliers {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                                .frame(width: 12, height: 12)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
+                
+                // Legend row
+                HStack(spacing: 14) {
+                    multiplierLegendItem(label: "< 1x", color: .blue)
+                    multiplierLegendItem(label: "1x", color: .primary)
+                    multiplierLegendItem(label: "2–10x", color: .orange)
+                    multiplierLegendItem(label: "> 10x", color: .red)
+                }
+                .font(.caption)
+                
+                // Action row
+                HStack(spacing: 12) {
+                    Button {
+                        multiplierService.multipliersURL = multipliersURL
+                        Task { await updateMultipliers() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isUpdatingMultipliers {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                    .frame(width: 12, height: 12)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.caption)
+                            }
+                            Text("Update Multipliers")
                                 .font(.caption)
                         }
-                        Text("Update Model Multipliers")
                     }
-                }
-                .disabled(isUpdatingMultipliers)
-                
-                if multiplierUpdateSuccess {
-                    Label("Updated", systemImage: "checkmark.circle.fill")
+                    .disabled(isUpdatingMultipliers)
+                    
+                    if multiplierUpdateSuccess {
+                        Label("Updated", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                    if let error = multiplierUpdateError {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showMultiplierConfig.toggle()
+                        }
+                    } label: {
+                        Label(
+                            showMultiplierConfig ? "Hide Config" : "Config",
+                            systemImage: showMultiplierConfig ? "chevron.up" : "chevron.down"
+                        )
                         .font(.caption)
-                        .foregroundColor(.green)
-                }
-                
-                if let error = multiplierUpdateError {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                Text("Last updated: \(multiplierService.lastUpdateDescription)")
-                    .font(.caption2)
+                    }
+                    .buttonStyle(.plain)
                     .foregroundColor(.secondary)
+                }
+                
+                // Collapsible config
+                if showMultiplierConfig {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Source URL:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        HStack(spacing: 6) {
+                            TextField("Multiplier data URL", text: $multipliersURL)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption.monospaced())
+                                .onSubmit {
+                                    multiplierService.multipliersURL = multipliersURL
+                                }
+                            Button {
+                                multipliersURL = ModelMultiplierConfiguration.defaultMultipliersURL
+                                multiplierService.multipliersURL = multipliersURL
+                            } label: {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Reset to default URL")
+                        }
+                    }
+                    .padding(.top, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
     }
+    
+    // MARK: - Product Breakdown
+    
+    private func productBreakdownSection(usage: UsageResponse) -> some View {
+        let byProduct = usage.usageByProduct.sorted {
+            if $0.value != $1.value { return $0.value > $1.value }
+            return $0.key < $1.key
+        }
+        
+        guard !byProduct.isEmpty else { return AnyView(EmptyView()) }
+        
+        return AnyView(
+            card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Usage by Product", systemImage: "shippingbox")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(byProduct, id: \.key) { product, count in
+                        HStack {
+                            Text(product)
+                                .font(.body)
+                            Spacer()
+                            Text(String(format: "%.0f credits", count))
+                                .font(.body.monospacedDigit())
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 1)
+                    }
+                }
+            }
+        )
+    }
+    
+    // MARK: - Footer
+    
+    private var footerSection: some View {
+        Group {
+            if let lastUpdate = tracker.lastUpdateTime {
+                Text("Last updated: \(formatDate(lastUpdate))")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+    }
+    
+    // MARK: - Reusable Components
+    
+    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardBackground)
+    }
+    
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(Color(nsColor: .controlBackgroundColor))
+            .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
+    }
+    
+    private func capsuleBadge(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15))
+            .foregroundColor(color)
+            .clipShape(Capsule())
+    }
+    
+    private func metricColumn(label: String, value: String, color: Color = .primary) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.title3.bold())
+                .foregroundColor(color)
+        }
+    }
+    
+    private func multiplierLegendItem(label: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(label).foregroundColor(.secondary)
+        }
+    }
+    
+    // MARK: - Multiplier Update Logic
     
     private func updateMultipliers() async {
         isUpdatingMultipliers = true
@@ -835,15 +871,11 @@ struct DetailedStatsView: View {
         do {
             _ = try await multiplierService.fetchMultipliers()
             multiplierUpdateSuccess = true
-            
-            // Clear success after 3 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 multiplierUpdateSuccess = false
             }
         } catch {
             multiplierUpdateError = error.localizedDescription
-            
-            // Clear error after 5 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                 multiplierUpdateError = nil
             }
@@ -852,90 +884,59 @@ struct DetailedStatsView: View {
         isUpdatingMultipliers = false
     }
     
-    private func multiplierLegendItem(label: String, color: Color, description: String) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-            Text(label)
-                .fontWeight(.medium)
-            Text("- \(description)")
-                .foregroundColor(.secondary)
-        }
-    }
-    
-    // MARK: - Product Breakdown Section
-    
-    private func productBreakdownSection(usage: UsageResponse) -> some View {
-        VStack(alignment: .leading) {
-            Text("Usage by Product")
-                .font(.headline)
-                .padding(.bottom, 5)
-            
-            let byProduct = usage.usageByProduct.sorted { 
-                if $0.value != $1.value {
-                    return $0.value > $1.value
-                }
-                return $0.key < $1.key
-            }
-            
-            ForEach(byProduct, id: \.key) { product, count in
-                HStack {
-                    Text(product)
-                        .font(.body)
-                    Spacer()
-                    Text(String(format: "%.1f requests", count))
-                        .font(.body.monospacedDigit())
-                        .foregroundColor(.secondary)
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-    
     // MARK: - Helpers
     
-    private func statusColor(percentage: Double) -> Color {
-        if percentage >= 90 {
-            return .red
-        } else if percentage >= 80 {
-            return .orange
-        } else if percentage >= 60 {
-            return .yellow
-        } else {
-            return .green
-        }
-    }
-
-    private func currency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        return formatter.string(from: NSNumber(value: amount)) ?? String(format: "$%.2f", amount)
+    // AIDEV-NOTE: Color thresholds updated June 2026 — multipliers now reach 57x (GPT-5.5).
+    private func multiplierColor(_ multiplier: Double) -> Color {
+        if multiplier == 0     { return .green  }  // legacy "Included" (0.0)
+        if multiplier < 1      { return .blue   }  // 0.33x cheap models
+        if multiplier == 1     { return .primary }  // 1x standard
+        if multiplier <= 10    { return .orange }  // 2x–10x premium
+        return .red                                 // 11x+ expensive (Opus, GPT-5.5…)
     }
     
-    private func formatQuantity(_ value: Double) -> String {
-        if value == 0 {
-            return "0"
-        } else if value < 1 {
-            return String(format: "%.2f", value)
-        } else if value == floor(value) {
-            return String(format: "%.0f", value)
-        } else {
-            return String(format: "%.2f", value)
-        }
+    private func statusColor(percentage: Double) -> Color {
+        if percentage >= 90    { return .red }
+        if percentage >= 80    { return .orange }
+        if percentage >= 60    { return .yellow }
+        return .green
+    }
+    
+    private func spendingBudgetColor(percent: Double) -> Color {
+        if percent >= 100      { return .red }
+        if percent >= 80       { return .orange }
+        if percent >= 60       { return .yellow }
+        return .green
+    }
+    
+    private func currency(_ amount: Double) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        return f.string(from: NSNumber(value: amount)) ?? String(format: "$%.2f", amount)
+    }
+    
+    private func formatQty(_ value: Double) -> String {
+        if value == 0 { return "0" }
+        if value < 1 { return String(format: "%.2f", value) }
+        if value == floor(value) { return String(format: "%.0f", value) }
+        return String(format: "%.2f", value)
     }
     
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        let f = DateFormatter()
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f.string(from: date)
     }
     
     private func formatTooltipDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = ChartTooltipConfiguration.dateFormat
-        return formatter.string(from: date)
+        let f = DateFormatter()
+        f.dateFormat = ChartTooltipConfiguration.dateFormat
+        return f.string(from: date)
+    }
+    
+    private func clamp(_ value: CGFloat, min lo: CGFloat, max hi: CGFloat) -> CGFloat {
+        Swift.min(Swift.max(value, lo), hi)
     }
 }

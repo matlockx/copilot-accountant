@@ -38,27 +38,27 @@ class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         switch type {
         case .threshold80:
             content.title = "Budget Alert: 80% Used"
-            content.body = "You've used \(currentUsage) of \(budget) premium requests (80%)"
+            content.body = "You've used \(currentUsage) of \(budget) AI credits (80%)"
             content.sound = .default
             
         case .threshold90:
             content.title = "⚠️ Budget Alert: 90% Used"
-            content.body = "You've used \(currentUsage) of \(budget) premium requests (90%)"
+            content.body = "You've used \(currentUsage) of \(budget) AI credits (90%)"
             content.sound = .defaultCritical
 
         case .customThreshold(let percentage):
             content.title = "Budget Alert: \(percentage)% Used"
-            content.body = "You've used \(currentUsage) of \(budget) premium requests (\(percentage)%)"
+            content.body = "You've used \(currentUsage) of \(budget) AI credits (\(percentage)%)"
             content.sound = .default
 
         case .percentageMilestone(let percentage):
             content.title = "Usage Milestone: \(percentage)%"
-            content.body = "You've reached \(percentage)% of your monthly budget (\(currentUsage) of \(budget) requests)."
+            content.body = "You've reached \(percentage)% of your monthly budget (\(currentUsage) of \(budget) credits)."
             content.sound = .default
              
         case .resetSoon:
             content.title = "Budget Resets Tomorrow"
-            content.body = "Your \(budget) premium requests will reset on the 1st"
+            content.body = "Your \(budget) AI credits will reset on the 1st"
             content.sound = .default
             
         case .apiError:

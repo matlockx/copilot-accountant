@@ -2,8 +2,11 @@ import Foundation
 
 /// Configuration for the model multiplier update feature
 struct ModelMultiplierConfiguration {
+    // AIDEV-NOTE: The multipliers table moved in June 2026 from the old "copilot-requests"
+    // page (which is now legacy-only with no table) to the dedicated "model-multipliers-for-annual-plans" page.
+    // The old URL still resolves via redirect but no longer has the table in its HTML.
     /// Default URL to fetch Copilot model multipliers from
-    static let defaultMultipliersURL = "https://docs.github.com/en/copilot/concepts/billing/copilot-requests"
+    static let defaultMultipliersURL = "https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans"
     
     /// UserDefaults key for the user-configured multiplier URL
     static let urlKey = "modelMultipliersURL"
@@ -186,7 +189,12 @@ class ModelMultiplierService: ObservableObject {
             let tableHTML = String(html[tableStart.lowerBound..<tableEnd.upperBound])
             
             // Check if this table has the right headers (Model + Multiplier)
-            if tableHTML.contains("Model") && (tableHTML.contains("Multiplier for") || tableHTML.contains("paid plans")) {
+            // AIDEV-NOTE: Old table headers had "Multiplier for paid plans" / "paid plans".
+            // New table (June 2026) uses just "<th>Multiplier</th>" — match both formats.
+            let hasMultiplierHeader = tableHTML.contains("Multiplier for")
+                || tableHTML.contains("paid plans")
+                || (tableHTML.contains("<th") && tableHTML.contains("Multiplier"))
+            if tableHTML.contains("Model") && hasMultiplierHeader {
                 result = parseHTMLTableContent(tableHTML)
                 if !result.isEmpty {
                     return result

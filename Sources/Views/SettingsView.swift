@@ -168,14 +168,14 @@ struct SettingsView: View {
                     settingsSection("Budget Settings") {
                         settingsGrid {
                             GridRow {
-                                gridLabel("Monthly Budget")
+                                gridLabel("Monthly Credit Budget")
                                 trailingControlRow {
                                     HStack(spacing: SettingsViewConfiguration.formFieldSpacing) {
                                     TextField("300", text: $monthlyBudget)
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: SettingsViewConfiguration.valueFieldWidth)
                                         .multilineTextAlignment(.trailing)
-                                    Text("requests")
+                                    Text("credits")
                                         .foregroundColor(.secondary)
                                     }
                                 }
