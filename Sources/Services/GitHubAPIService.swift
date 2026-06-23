@@ -7,6 +7,20 @@ class GitHubAPIService {
     private let apiVersion = "2022-11-28"
     private let log = LogService.shared
     
+    // AIDEV-NOTE: Billing source tracks whether usage comes from a personal account
+    // or an organization-managed Copilot license. Stored after successful fetch.
+    enum BillingSource: Equatable, Codable {
+        case personal
+        case organization(String)
+        
+        var description: String {
+            switch self {
+            case .personal: return "Personal"
+            case .organization(let name): return "Organization: \(name)"
+            }
+        }
+    }
+    
     enum APIError: LocalizedError {
         case invalidURL
         case noToken
@@ -36,7 +50,7 @@ class GitHubAPIService {
             case .networkError(let error):
                 return "Network error: \(error.localizedDescription)"
             case .notFound(let message):
-                return "Not found: \(message). This may mean: 1) Your Copilot is billed through an organization (not personal), 2) The token lacks required permissions, or 3) Premium requests feature is not available on your plan."
+                return "Not found: \(message). This may mean: 1) The token lacks required billing permissions, or 2) Copilot is not available on your plan."
             case .unauthorized:
                 return "Unauthorized: Invalid or expired token. Please check your GitHub Personal Access Token."
             case .forbidden(let message):
@@ -85,45 +99,128 @@ class GitHubAPIService {
         return user.login
     }
     
-    /// Fetch premium request usage for current month
+    // AIDEV-NOTE: GitHub has three billing endpoints with the same schema:
+    //   1. /settings/billing/premium_request/usage — legacy premium requests
+    //   2. /settings/billing/ai_credit/usage — NEW (June 2026), preferred
+    //   Both return { timePeriod, user, usageItems: [{product, sku, model, grossQuantity, ...}] }
+    // We use ai_credit as the primary endpoint, falling back to org billing for
+    // users with organization-managed Copilot licenses.
+    
+    /// Fetch AI credit usage for a personal account (current month)
     func fetchUsage(username: String, token: String) async throws -> UsageResponse {
-        log.info("Fetching usage for user: \(username)")
-        let endpoint = "/users/\(username)/settings/billing/premium_request/usage"
+        log.info("Fetching AI credit usage for user: \(username)")
+        let endpoint = "/users/\(username)/settings/billing/ai_credit/usage?product=copilot"
         return try await makeRequest(endpoint: endpoint, token: token)
     }
     
-    /// Fetch usage for a specific year and month
+    /// Fetch AI credit usage for a specific year and month
     func fetchUsage(username: String, token: String, year: Int, month: Int) async throws -> UsageResponse {
-        log.info("Fetching usage for user: \(username), year: \(year), month: \(month)")
-        let endpoint = "/users/\(username)/settings/billing/premium_request/usage?year=\(year)&month=\(month)"
+        log.info("Fetching AI credit usage for user: \(username), year: \(year), month: \(month)")
+        let endpoint = "/users/\(username)/settings/billing/ai_credit/usage?year=\(year)&month=\(month)&product=copilot"
         return try await makeRequest(endpoint: endpoint, token: token)
+    }
+    
+    /// Fetch AI credit usage for an org-managed Copilot license
+    func fetchOrgUsage(org: String, username: String, token: String, year: Int, month: Int) async throws -> UsageResponse {
+        log.info("Fetching org AI credit usage for org: \(org), user: \(username)")
+        let endpoint = "/organizations/\(org)/settings/billing/ai_credit/usage?year=\(year)&month=\(month)&user=\(username)&product=copilot"
+        let response: UsageResponse = try await makeRequest(endpoint: endpoint, token: token)
+        log.info("Org AI credit API returned \(response.usageItems.count) items for \(username) in \(org)")
+        return response
+    }
+    
+    /// Fetch organizations the user belongs to
+    func fetchOrganizations(token: String) async throws -> [String] {
+        log.info("Fetching user organizations")
+        struct OrgResponse: Decodable {
+            let login: String
+        }
+        let orgs: [OrgResponse] = try await makeRequest(endpoint: "/user/orgs", token: token)
+        let orgNames = orgs.map { $0.login }
+        log.info("User belongs to \(orgNames.count) organizations: \(orgNames.joined(separator: ", "))")
+        return orgNames
+    }
+    
+    // AIDEV-NOTE: fetchUsageWithFallback tries personal ai_credit billing first.
+    // If personal returns 404 (org-managed Copilot), it tries each organization.
+    // Returns the response and the billing source (personal or org name).
+    func fetchUsageWithFallback(username: String, token: String, year: Int, month: Int) async throws -> (UsageResponse, BillingSource) {
+        log.info("Fetching AI credit usage (personal first, then org fallback)")
+        
+        // Try personal account first
+        do {
+            let response = try await fetchUsage(username: username, token: token, year: year, month: month)
+            log.info("Personal AI credit usage fetched successfully")
+            return (response, .personal)
+        } catch let error as APIError {
+            switch error {
+            case .notFound:
+                log.info("Personal billing returned 404, trying organizations...")
+            default:
+                throw error
+            }
+        }
+        
+        // Fall back to org billing
+        let orgs = try await fetchOrganizations(token: token)
+        guard !orgs.isEmpty else {
+            log.error("No organizations found, cannot fall back to org billing")
+            throw APIError.notFound("No personal or organization Copilot billing found for user '\(username)'. Ensure your token has billing read permissions.")
+        }
+        
+        for org in orgs {
+            do {
+                let response = try await fetchOrgUsage(org: org, username: username, token: token, year: year, month: month)
+                if !response.usageItems.isEmpty {
+                    log.info("Found Copilot usage in organization: \(org)")
+                    return (response, .organization(org))
+                }
+                log.info("Organization \(org) has no Copilot usage for \(username)")
+            } catch let error as APIError {
+                switch error {
+                case .notFound, .forbidden:
+                    log.info("Organization \(org) billing not accessible: \(error.localizedDescription)")
+                    continue
+                default:
+                    throw error
+                }
+            }
+        }
+        
+        throw APIError.notFound("No Copilot billing data found in any organization. Your Copilot license may not be active or your token may lack billing permissions.")
     }
     
     /// Fetch daily usage for the current month
-    func fetchDailyUsage(username: String, token: String) async throws -> [DailyUsage] {
+    /// AIDEV-NOTE: Uses the ai_credit endpoint with day parameter for per-day breakdown.
+    /// Only fetches days up to today to minimize API calls.
+    func fetchDailyUsage(username: String, token: String, billingSource: BillingSource) async throws -> [DailyUsage] {
         let calendar = Calendar.current
         let now = Date()
         let year = calendar.component(.year, from: now)
         let month = calendar.component(.month, from: now)
+        let today = calendar.component(.day, from: now)
         
-        log.info("Fetching daily usage for \(year)-\(month)")
+        log.info("Fetching daily usage for \(year)-\(month) (days 1...\(today))")
         
         var dailyUsage: [DailyUsage] = []
-        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 31
         
-        // Fetch data for each day of the month
-        for day in 1...daysInMonth {
-            if let date = calendar.date(from: DateComponents(year: year, month: month, day: day)),
-               date <= now {
-                do {
-                    let endpoint = "/users/\(username)/settings/billing/premium_request/usage?year=\(year)&month=\(month)&day=\(day)"
-                    let response: UsageResponse = try await makeRequest(endpoint: endpoint, token: token)
-                    dailyUsage.append(DailyUsage(date: date, requests: response.totalRequests))
-                } catch {
-                    log.warning("Failed to fetch usage for day \(day): \(error.localizedDescription)")
-                    // If a specific day fails, add zero usage
-                    dailyUsage.append(DailyUsage(date: date, requests: 0))
+        for day in 1...today {
+            guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else {
+                continue
+            }
+            do {
+                let endpoint: String
+                switch billingSource {
+                case .personal:
+                    endpoint = "/users/\(username)/settings/billing/ai_credit/usage?year=\(year)&month=\(month)&day=\(day)&product=copilot"
+                case .organization(let org):
+                    endpoint = "/organizations/\(org)/settings/billing/ai_credit/usage?year=\(year)&month=\(month)&day=\(day)&user=\(username)&product=copilot"
                 }
+                let response: UsageResponse = try await makeRequest(endpoint: endpoint, token: token)
+                dailyUsage.append(DailyUsage(date: date, requests: response.totalRequests))
+            } catch {
+                log.warning("Failed to fetch usage for day \(day): \(error.localizedDescription)")
+                dailyUsage.append(DailyUsage(date: date, requests: 0))
             }
         }
         
@@ -197,7 +294,8 @@ class GitHubAPIService {
     }
     
     /// Validate token by making a test request
-    func validateToken(username: String, token: String) async -> (success: Bool, error: String?) {
+    /// Returns success status, optional error message, and billing source if successful
+    func validateToken(username: String, token: String) async -> (success: Bool, error: String?, billingSource: BillingSource?) {
         log.info("Validating token for user: \(username)")
         
         // First verify the token works at all
@@ -208,21 +306,26 @@ class GitHubAPIService {
             // Check if username matches
             if actualUsername.lowercased() != username.lowercased() {
                 log.warning("Username mismatch: entered '\(username)' but token belongs to '\(actualUsername)'")
-                return (false, "Token belongs to user '\(actualUsername)', not '\(username)'. Please use the correct username.")
+                return (false, "Token belongs to user '\(actualUsername)', not '\(username)'. Please use the correct username.", nil)
             }
         } catch {
             log.error("Token verification failed: \(error.localizedDescription)")
-            return (false, error.localizedDescription)
+            return (false, error.localizedDescription, nil)
         }
         
-        // Now try to fetch usage
+        // Now try to fetch usage with personal→org fallback
+        let calendar = Calendar.current
+        let now = Date()
+        let year = calendar.component(.year, from: now)
+        let month = calendar.component(.month, from: now)
+        
         do {
-            let usage = try await fetchUsage(username: username, token: token)
-            log.info("Token validation successful! Total requests: \(usage.totalRequests)")
-            return (true, nil)
+            let (usage, source) = try await fetchUsageWithFallback(username: username, token: token, year: year, month: month)
+            log.info("Token validation successful! Total requests: \(usage.totalRequests), source: \(source.description)")
+            return (true, nil, source)
         } catch {
             log.error("Usage fetch failed: \(error.localizedDescription)")
-            return (false, error.localizedDescription)
+            return (false, error.localizedDescription, nil)
         }
     }
 }

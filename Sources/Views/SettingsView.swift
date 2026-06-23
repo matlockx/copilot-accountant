@@ -136,6 +136,8 @@ struct SettingsView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Label("Plan → Read-only", systemImage: "checkmark.circle.fill")
                                             .foregroundColor(.green)
+                                        Label("Administration → Read-only (for org billing)", systemImage: "checkmark.circle")
+                                            .foregroundColor(.secondary)
                                     }
                                     .padding(.leading, 16)
                                     .font(.caption)
@@ -144,7 +146,7 @@ struct SettingsView: View {
 
                                     Divider()
 
-                                    Text("Note: Your Copilot must be a personal subscription (you pay directly). Organization-managed Copilot requires different setup.")
+                                    Text("Both personal Copilot subscriptions and organization-managed Copilot licenses are supported. The app will auto-detect your billing source.")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
 
@@ -566,7 +568,8 @@ struct SettingsView: View {
         
         if result.success {
             validationAlertTitle = SettingsAlertConfiguration.successTitle
-            validationMessage = "Token is valid!"
+            let sourceInfo = result.billingSource?.description ?? "Unknown"
+            validationMessage = "Token is valid! Billing source: \(sourceInfo)"
             showingValidationAlert = true
         } else {
             validationAlertTitle = SettingsAlertConfiguration.failureTitle

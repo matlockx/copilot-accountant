@@ -113,6 +113,37 @@ struct GitHubAPITests {
             test.assertNotNil(daily.id, "Should have ID")
         }
         
+        // Test 7: BillingSource descriptions
+        test.run("test_GitHubAPI_BillingSource_Descriptions") {
+            let personal = GitHubAPIService.BillingSource.personal
+            test.assertEqual(personal.description, "Personal", "Personal source description")
+            
+            let org = GitHubAPIService.BillingSource.organization("my-org")
+            test.assertEqual(org.description, "Organization: my-org", "Org source description")
+        }
+        
+        // Test 8: BillingSource equality
+        test.run("test_GitHubAPI_BillingSource_Equality") {
+            test.assertTrue(GitHubAPIService.BillingSource.personal == .personal, "Personal == Personal")
+            test.assertTrue(GitHubAPIService.BillingSource.organization("a") == .organization("a"), "Same org equal")
+            test.assertTrue(GitHubAPIService.BillingSource.organization("a") != .organization("b"), "Different orgs not equal")
+            test.assertTrue(GitHubAPIService.BillingSource.personal != .organization("a"), "Personal != Org")
+        }
+        
+        // Test 9: BillingSource Codable round-trip
+        test.run("test_GitHubAPI_BillingSource_CodableRoundTrip") {
+            let sources: [GitHubAPIService.BillingSource] = [.personal, .organization("test-org")]
+            for source in sources {
+                do {
+                    let data = try JSONEncoder().encode(source)
+                    let decoded = try JSONDecoder().decode(GitHubAPIService.BillingSource.self, from: data)
+                    test.assertTrue(decoded == source, "Round-trip for \(source.description)")
+                } catch {
+                    test.assertTrue(false, "Codable round-trip failed for \(source.description): \(error)")
+                }
+            }
+        }
+        
         test.printSummary()
     }
 }

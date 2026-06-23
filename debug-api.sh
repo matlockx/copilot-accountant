@@ -22,27 +22,27 @@ echo ""
 # Load token from .env file
 ENV_FILE=".env"
 if [ -f "$ENV_FILE" ]; then
-    source "$ENV_FILE"
-    echo -e "${GREEN}✓ Loaded .env file${NC}"
+	source "$ENV_FILE"
+	echo -e "${GREEN}✓ Loaded .env file${NC}"
 else
-    echo -e "${RED}✗ No .env file found${NC}"
-    echo ""
-    echo "Create a .env file with:"
-    echo "  GITHUB_TOKEN=your_token_here"
-    echo "  GITHUB_USERNAME=your_username"
-    echo ""
-    exit 1
+	echo -e "${RED}✗ No .env file found${NC}"
+	echo ""
+	echo "Create a .env file with:"
+	echo "  GITHUB_TOKEN=your_token_here"
+	echo "  GITHUB_USERNAME=your_username"
+	echo ""
+	exit 1
 fi
 
 # Validate required variables
 if [ -z "$GITHUB_TOKEN" ]; then
-    echo -e "${RED}✗ GITHUB_TOKEN not set in .env${NC}"
-    exit 1
+	echo -e "${RED}✗ GITHUB_TOKEN not set in .env${NC}"
+	exit 1
 fi
 
 if [ -z "$GITHUB_USERNAME" ]; then
-    echo -e "${RED}✗ GITHUB_USERNAME not set in .env${NC}"
-    exit 1
+	echo -e "${RED}✗ GITHUB_USERNAME not set in .env${NC}"
+	exit 1
 fi
 
 echo -e "${CYAN}Username: ${GITHUB_USERNAME}${NC}"
@@ -56,68 +56,68 @@ API_VERSION="X-GitHub-Api-Version: 2022-11-28"
 
 # Function to make API call and display results
 api_call() {
-    local description="$1"
-    local endpoint="$2"
-    local expected_status="${3:-200}"
-    
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}TEST: ${description}${NC}"
-    echo -e "${CYAN}GET ${endpoint}${NC}"
-    echo ""
-    
-    # Make the request and capture response + status code
-    HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" \
-        -H "$AUTH_HEADER" \
-        -H "$ACCEPT_HEADER" \
-        -H "$API_VERSION" \
-        "https://api.github.com${endpoint}")
-    
-    HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
-    HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
-    
-    # Display status
-    if [ "$HTTP_STATUS" = "$expected_status" ] || [ "$HTTP_STATUS" = "200" ]; then
-        echo -e "${GREEN}✓ Status: ${HTTP_STATUS}${NC}"
-    else
-        echo -e "${RED}✗ Status: ${HTTP_STATUS} (expected ${expected_status})${NC}"
-    fi
-    
-    # Pretty print JSON if jq is available
-    if command -v jq &> /dev/null; then
-        echo "$HTTP_BODY" | jq '.' 2>/dev/null || echo "$HTTP_BODY"
-    else
-        echo "$HTTP_BODY"
-    fi
-    echo ""
+	local description="$1"
+	local endpoint="$2"
+	local expected_status="${3:-200}"
+
+	echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+	echo -e "${YELLOW}TEST: ${description}${NC}"
+	echo -e "${CYAN}GET ${endpoint}${NC}"
+	echo ""
+
+	# Make the request and capture response + status code
+	HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" \
+		-H "$AUTH_HEADER" \
+		-H "$ACCEPT_HEADER" \
+		-H "$API_VERSION" \
+		"https://api.github.com${endpoint}")
+
+	HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+	HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
+
+	# Display status
+	if [ "$HTTP_STATUS" = "$expected_status" ] || [ "$HTTP_STATUS" = "200" ]; then
+		echo -e "${GREEN}✓ Status: ${HTTP_STATUS}${NC}"
+	else
+		echo -e "${RED}✗ Status: ${HTTP_STATUS} (expected ${expected_status})${NC}"
+	fi
+
+	# Pretty print JSON if jq is available
+	if command -v jq &>/dev/null; then
+		echo "$HTTP_BODY" | jq '.' 2>/dev/null || echo "$HTTP_BODY"
+	else
+		echo "$HTTP_BODY"
+	fi
+	echo ""
 }
 
 # Function to check token scopes
 check_token_scopes() {
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}TEST: Check Token Scopes & Permissions${NC}"
-    echo ""
-    
-    # Make request and capture headers
-    HEADERS=$(curl -s -I \
-        -H "$AUTH_HEADER" \
-        -H "$ACCEPT_HEADER" \
-        -H "$API_VERSION" \
-        "https://api.github.com/user")
-    
-    # Extract relevant headers
-    SCOPES=$(echo "$HEADERS" | grep -i "x-oauth-scopes:" | cut -d: -f2- | tr -d '\r')
-    RATE_LIMIT=$(echo "$HEADERS" | grep -i "x-ratelimit-limit:" | cut -d: -f2- | tr -d '\r')
-    TOKEN_TYPE=$(echo "$HEADERS" | grep -i "x-github-authentication-token-type:" | cut -d: -f2- | tr -d '\r')
-    
-    echo -e "${CYAN}Token Type:${NC}$TOKEN_TYPE"
-    echo -e "${CYAN}OAuth Scopes:${NC}$SCOPES"
-    echo -e "${CYAN}Rate Limit:${NC}$RATE_LIMIT"
-    
-    if [ -z "$SCOPES" ] || [ "$SCOPES" = " " ]; then
-        echo -e "${YELLOW}Note: No scopes shown - this is normal for Fine-grained tokens${NC}"
-        echo -e "${YELLOW}Fine-grained tokens use permissions instead of scopes${NC}"
-    fi
-    echo ""
+	echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+	echo -e "${YELLOW}TEST: Check Token Scopes & Permissions${NC}"
+	echo ""
+
+	# Make request and capture headers
+	HEADERS=$(curl -s -I \
+		-H "$AUTH_HEADER" \
+		-H "$ACCEPT_HEADER" \
+		-H "$API_VERSION" \
+		"https://api.github.com/user")
+
+	# Extract relevant headers
+	SCOPES=$(echo "$HEADERS" | grep -i "x-oauth-scopes:" | cut -d: -f2- | tr -d '\r')
+	RATE_LIMIT=$(echo "$HEADERS" | grep -i "x-ratelimit-limit:" | cut -d: -f2- | tr -d '\r')
+	TOKEN_TYPE=$(echo "$HEADERS" | grep -i "x-github-authentication-token-type:" | cut -d: -f2- | tr -d '\r')
+
+	echo -e "${CYAN}Token Type:${NC}$TOKEN_TYPE"
+	echo -e "${CYAN}OAuth Scopes:${NC}$SCOPES"
+	echo -e "${CYAN}Rate Limit:${NC}$RATE_LIMIT"
+
+	if [ -z "$SCOPES" ] || [ "$SCOPES" = " " ]; then
+		echo -e "${YELLOW}Note: No scopes shown - this is normal for Fine-grained tokens${NC}"
+		echo -e "${YELLOW}Fine-grained tokens use permissions instead of scopes${NC}"
+	fi
+	echo ""
 }
 
 echo ""
@@ -133,8 +133,11 @@ check_token_scopes
 # Test 3: Get user's Copilot subscription status
 api_call "Copilot Subscription Status (user)" "/user/copilot_seat"
 
-# Test 4: The main billing endpoint we're trying to use
-api_call "Premium Request Usage (user)" "/users/${GITHUB_USERNAME}/settings/billing/premium_request/usage"
+# Test 4: The ai_credit billing endpoint (NEW — preferred)
+api_call "AI Credit Usage (user)" "/users/${GITHUB_USERNAME}/settings/billing/ai_credit/usage?product=copilot"
+
+# Test 5: Legacy premium_request endpoint (still works)
+api_call "Premium Request Usage (user, legacy)" "/users/${GITHUB_USERNAME}/settings/billing/premium_request/usage"
 
 # Test 5: Try the general billing usage endpoint
 api_call "General Billing Usage (user)" "/users/${GITHUB_USERNAME}/settings/billing/usage"
@@ -165,10 +168,11 @@ echo ""
 echo "If most endpoints return 404, the issue is likely:"
 echo "  1. The billing API requires specific account access"
 echo "  2. Your Copilot might be through an organization"
-echo "  3. The premium_request endpoint might not be available for your plan"
+echo "  3. The ai_credit endpoint might not be available for your plan"
 echo ""
-echo "If you see organization data, try the org billing endpoint:"
-echo "  GET /organizations/{org}/settings/billing/premium_request/usage"
+echo "If you see organization data, the app will auto-detect org billing."
+echo "Try the org billing endpoint manually:"
+echo "  GET /organizations/{org}/settings/billing/ai_credit/usage?user=${GITHUB_USERNAME}&product=copilot"
 echo ""
 echo -e "${YELLOW}Share the output above to help diagnose the issue!${NC}"
 echo ""

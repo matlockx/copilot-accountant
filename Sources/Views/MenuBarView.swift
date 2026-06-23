@@ -126,6 +126,16 @@ struct MenuBarView: View {
                     .font(.caption)
             }
             
+            if let source = tracker.billingSource {
+                HStack {
+                    Image(systemName: source == .personal ? "person" : "building.2")
+                        .foregroundColor(.secondary)
+                        .frame(width: 20)
+                    Text(source.description)
+                        .font(.caption)
+                }
+            }
+            
             if let lastUpdate = tracker.lastUpdateTime {
                 HStack {
                     Image(systemName: "clock")

@@ -27,6 +27,9 @@ class UsageTracker: ObservableObject {
     @Published var lastError: String?
     @Published var lastUpdateTime: Date?
     @Published var config: BudgetConfig
+    // AIDEV-NOTE: billingSource tracks whether usage comes from personal or org billing.
+    // Set after each successful fetch, persisted across sessions via UserDefaults.
+    @Published var billingSource: GitHubAPIService.BillingSource?
     
     private let apiService = GitHubAPIService()
     private let keychainService = KeychainService()
@@ -46,6 +49,7 @@ class UsageTracker: ObservableObject {
     private let alert90Key = "hasAlerted90"
     private let alertCustomPercentagesKey = "alertedCustomPercentages"
     private let lastAlertedWholePercentKey = "lastAlertedWholePercent"
+    private let billingSourceKey = "cachedBillingSource"
     
     init() {
         log.info("UsageTracker initializing")
@@ -70,6 +74,12 @@ class UsageTracker: ObservableObject {
             alertState.alertedCustomPercentages = Set(storedCustomPercentages)
         }
         alertState.lastAlertedWholePercent = userDefaults.integer(forKey: lastAlertedWholePercentKey)
+        
+        // Load cached billing source
+        if let data = userDefaults.data(forKey: billingSourceKey),
+           let decoded = try? JSONDecoder().decode(GitHubAPIService.BillingSource.self, from: data) {
+            billingSource = decoded
+        }
     }
 
     static func postUsageUpdatedNotification() {
@@ -125,17 +135,30 @@ class UsageTracker: ObservableObject {
         lastError = nil
         
         do {
-            // Fetch current month usage
-            let usage = try await apiService.fetchUsage(username: config.username, token: token)
+            // AIDEV-NOTE: Use ai_credit endpoint with personal→org fallback.
+            // This automatically tries the user's personal billing first,
+            // then falls back to org billing for org-managed Copilot licenses.
+            let calendar = Calendar.current
+            let now = Date()
+            let year = calendar.component(.year, from: now)
+            let month = calendar.component(.month, from: now)
+            
+            let (usage, source) = try await apiService.fetchUsageWithFallback(
+                username: config.username, token: token, year: year, month: month
+            )
             currentUsage = usage
+            billingSource = source
             lastUpdateTime = Date()
             Self.postUsageUpdatedNotification()
             
-            log.info("Usage fetched successfully: \(usage.totalRequests) total requests")
+            log.info("Usage fetched successfully via \(source.description): \(usage.totalRequests) total requests")
             
             // Save to cache
             if let encoded = try? JSONEncoder().encode(usage) {
                 userDefaults.set(encoded, forKey: lastUsageKey)
+            }
+            if let sourceEncoded = try? JSONEncoder().encode(source) {
+                userDefaults.set(sourceEncoded, forKey: billingSourceKey)
             }
             
             // Compute spending budget from usage data + config
@@ -167,12 +190,15 @@ class UsageTracker: ObservableObject {
     /// Fetch daily usage for charting
     private func fetchDailyUsage() async {
         guard !config.username.isEmpty,
-              let token = try? keychainService.loadToken() else {
+              let token = try? keychainService.loadToken(),
+              let source = billingSource else {
             return
         }
         
         do {
-            let daily = try await apiService.fetchDailyUsage(username: config.username, token: token)
+            let daily = try await apiService.fetchDailyUsage(
+                username: config.username, token: token, billingSource: source
+            )
             dailyUsage = daily
             log.info("Daily usage fetched: \(daily.count) days")
             
