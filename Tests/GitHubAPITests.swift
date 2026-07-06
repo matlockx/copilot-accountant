@@ -144,6 +144,35 @@ struct GitHubAPITests {
             }
         }
         
+        // Test 10: shouldFallbackToOrg (fix A) - empty personal response triggers org fallback
+        test.run("test_GitHubAPI_ShouldFallbackToOrg_WhenPersonalEmpty") {
+            let empty = UsageResponse(timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                                      user: "orguser", product: "copilot", model: nil, usageItems: [])
+            test.assertTrue(GitHubAPIService.shouldFallbackToOrg(personalResponse: empty),
+                            "Empty personal usage (org-managed) should trigger org fallback")
+
+            let item = UsageItem(product: "copilot", sku: "premium", model: "gpt-4o", unitType: "requests",
+                                 pricePerUnit: 0.05, grossQuantity: 10, grossAmount: 0.5,
+                                 discountQuantity: 0, discountAmount: 0, netQuantity: 0, netAmount: 0)
+            let nonEmpty = UsageResponse(timePeriod: TimePeriod(year: 2026, month: 3, day: nil),
+                                         user: "personaluser", product: "copilot", model: nil, usageItems: [item])
+            test.assertTrue(!GitHubAPIService.shouldFallbackToOrg(personalResponse: nonEmpty),
+                            "Non-empty personal usage should NOT trigger org fallback")
+        }
+
+        // Test 11: synthesizeUsage maps Copilot quota into UsageResponse (org-managed seats)
+        test.run("test_GitHubAPI_SynthesizeUsage_FromCopilotQuota") {
+            let quota = GitHubAPIService.CopilotQuota(
+                used: 5218, entitlement: 40000, remaining: 34782,
+                percentUsed: 13.1, unlimited: false, resetDate: "2026-08-01", plan: "business"
+            )
+            let usage = GitHubAPIService.synthesizeUsage(from: quota, username: "martin-joehren-bm", year: 2026, month: 7)
+            test.assertEqual(usage.totalRequests, 5218, "totalRequests should equal used premium interactions")
+            test.assertEqual(usage.usageItems.count, 1, "should synthesize exactly one usage item")
+            test.assertEqual(usage.user, "martin-joehren-bm", "username should be carried through")
+            test.assertEqual(usage.usageItems.first?.product, "copilot", "product should be copilot")
+        }
+
         test.printSummary()
     }
 }

@@ -99,19 +99,30 @@ This builds the app and installs it to `/Applications/CopilotAccountant.app`.
 
 > Classic tokens (with scopes like `read:user`) will **not** work. You must use a fine-grained token with "Plan" access.
 
+#### Organization-managed Copilot
+
+If your Copilot license is provided by an **organization** (GitHub Copilot Business/Enterprise seat), the app reads your **per-user** premium-request usage directly from the same source the github.com Copilot settings page uses — no billing-admin permission required, and it works with a standard token.
+
+- Set the **Organization** field in Settings to the org login that manages your seat (as shown on your [Copilot settings page](https://github.com/settings/copilot/features)).
+- The app auto-detects the billing source: personal subscription → personal billing; org/enterprise-managed seat → your per-user Copilot quota (used / monthly entitlement).
+- Your monthly budget is aligned automatically with the entitlement GitHub reports for your seat, so the usage % matches github.com.
+
+> **Enterprise-owned orgs:** the public billing REST API refuses per-user filtering ("Organization admins for enterprise owned organizations cannot filter usage by user"). The app avoids that limitation by reading your individual seat quota instead. Dollar-spend tracking is unavailable for org-managed seats (the quota source carries no cost data).
+
 ### 2. Configure the App
 
 1. Launch Copilot Accountant from your Applications folder
 2. Click the Copilot icon in the menu bar
 3. Click **Settings**
 4. Enter your **GitHub Username** and paste your **Personal Access Token**
-5. Click **Save Token**, then **Validate** to test the connection
-6. Adjust your settings:
+5. If your Copilot is managed by an organization, enter the org login in the **Organization** field (leave blank for a personal subscription)
+6. Click **Save Token**, then **Validate** to test the connection
+7. Adjust your settings:
    - **Monthly Budget**: Default is 300 requests — adjust for your plan
    - **Dollar Budget**: Optional spending cap (shown in the popup and stats window)
    - **Polling Interval**: How often to check for updates (default: 5 minutes)
    - **Notifications**: Toggle alerts at 80% and 90%
-7. Click **Save**
+8. Click **Save**
 
 ### 3. Understanding Your Plan
 
@@ -136,6 +147,10 @@ Check your current plan and usage at [github.com/settings/billing](https://githu
 - Try regenerating the token on GitHub
 - Make sure you copied the full token without leading/trailing spaces
 
+### Organization usage shows nothing
+- Set the **Organization** field in Settings to the org login shown on your [Copilot settings page](https://github.com/settings/copilot/features), then **Validate**
+- Ensure your token can read your account (a standard token with `user` access works; the app reads your per-user seat quota, not org billing)
+
 ### "Failed to fetch usage data"
 - GitHub API may be temporarily unavailable — check [githubstatus.com](https://www.githubstatus.com/)
 - You may have hit the API rate limit (unlikely with default 5-minute polling)
@@ -144,8 +159,12 @@ Check your current plan and usage at [github.com/settings/billing](https://githu
 
 This app uses the GitHub REST API:
 ```
-GET /users/{username}/settings/billing/premium_request/usage
+GET /users/{username}/settings/billing/ai_credit/usage         # personal subscription
+GET /copilot_internal/user                                     # per-user seat quota (org/enterprise-managed)
+GET /organizations/{org}/settings/billing/ai_credit/usage      # org billing (requires org admin)
 ```
+
+The app tries personal billing first, then falls back to your per-user Copilot seat quota (org/enterprise-managed seats), then org billing.
 
 See [GitHub Billing Usage API docs](https://docs.github.com/en/rest/billing/usage) for details.
 

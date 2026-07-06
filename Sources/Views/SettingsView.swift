@@ -5,6 +5,7 @@ import ServiceManagement
 struct SettingsView: View {
     @ObservedObject var tracker: UsageTracker
     @State private var username: String
+    @State private var organization: String
     @State private var token: String = ""
     @State private var showToken: Bool = false
     @State private var revealedSavedToken: String = ""
@@ -30,6 +31,7 @@ struct SettingsView: View {
     init(tracker: UsageTracker) {
         self.tracker = tracker
         _username = State(initialValue: tracker.config.username)
+        _organization = State(initialValue: tracker.config.organization)
         _monthlyBudget = State(initialValue: String(tracker.config.monthlyBudget))
         _pollingInterval = State(initialValue: String(tracker.config.pollingIntervalMinutes))
         _notificationsEnabled = State(initialValue: tracker.config.notificationsEnabled)
@@ -60,6 +62,17 @@ struct SettingsView: View {
                                 TextField("GitHub Username", text: $username)
                                     .textFieldStyle(.roundedBorder)
                                     .textContentType(.username)
+                            }
+
+                            GridRow {
+                                gridLabel("Organization")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    TextField("Optional — org login (leave blank to auto-detect)", text: $organization)
+                                        .textFieldStyle(.roundedBorder)
+                                    Text("Set this if your Copilot is managed by an organization. Leave blank for a personal subscription.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
 
                             GridRow {
@@ -563,7 +576,7 @@ struct SettingsView: View {
         
         isValidating = true
         let apiService = GitHubAPIService()
-        let result = await apiService.validateToken(username: username, token: token)
+        let result = await apiService.validateToken(username: username, token: token, organization: organization.trimmingCharacters(in: .whitespacesAndNewlines))
         isValidating = false
         
         if result.success {
@@ -600,6 +613,7 @@ struct SettingsView: View {
     
     private func saveSettings() {
         tracker.config.username = username
+        tracker.config.organization = organization.trimmingCharacters(in: .whitespacesAndNewlines)
         tracker.config.monthlyBudget = Int(monthlyBudget) ?? 300
         tracker.config.pollingIntervalMinutes = Int(pollingInterval) ?? 5
         tracker.config.notificationsEnabled = notificationsEnabled

@@ -143,13 +143,27 @@ class UsageTracker: ObservableObject {
             let year = calendar.component(.year, from: now)
             let month = calendar.component(.month, from: now)
             
-            let (usage, source) = try await apiService.fetchUsageWithFallback(
-                username: config.username, token: token, year: year, month: month
+            let result = try await apiService.fetchUsageWithFallback(
+                username: config.username, token: token, year: year, month: month,
+                organization: config.organization
             )
+            let usage = result.usage
+            let source = result.source
             currentUsage = usage
             billingSource = source
             lastUpdateTime = Date()
             Self.postUsageUpdatedNotification()
+            
+            // AIDEV-NOTE: For the copilot-quota source (org/enterprise-managed seats),
+            // GitHub reports the monthly entitlement directly. Align our budget with it
+            // so the usage % matches github.com exactly, and persist the change.
+            if let entitlement = result.monthlyEntitlement, entitlement > 0, config.monthlyBudget != entitlement {
+                log.info("Aligning monthly budget with Copilot entitlement: \(entitlement)")
+                config.monthlyBudget = entitlement
+                if let encoded = try? JSONEncoder().encode(config) {
+                    userDefaults.set(encoded, forKey: configKey)
+                }
+            }
             
             log.info("Usage fetched successfully via \(source.description): \(usage.totalRequests) total requests")
             
